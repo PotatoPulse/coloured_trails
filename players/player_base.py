@@ -19,3 +19,7 @@ class Player():
     def offer_evaluate(self, offer: tuple, accepted: bool):
         '''Player receives feedback on given offer'''
         pass
+    
+    def evaluate(self, score: int):
+        '''Player receives feedback on game'''
+        pass

@@ -1,6 +1,7 @@
 from utils.globals import COLOURS, START_CHIPS
 from players.player_base import Player
 from board import Board
+from pathfinder import find_best_path
 import numpy as np
 
 class GameMaster():
@@ -76,4 +77,16 @@ class GameMaster():
         self.evaluate(penalty=i)
             
     def evaluate(self, penalty):
+        best_position_initiator, unused_chips_initiator = find_best_path(self.initiator.chips, self.initiator.goal, self.board)
+        best_position_responder, unused_chips_responder = find_best_path(self.responder.chips, self.responder.goal, self.board)
+        distance_initiator = None #get_distance(best_position_initiator, self.initiator.goal)
+        distance_responder = None #get_distance(best_position_responder, self.responder.goal)
+        
+        win_score_initiator = 100 if distance_initiator == 0 else 0
+        win_score_responder = 100 if distance_responder == 0 else 0
+        score_initiator = distance_initiator * 10 - penalty + 5 * unused_chips_initiator + win_score_initiator
+        score_responder = distance_responder * 10 - penalty + 5 * unused_chips_responder + win_score_responder
+        
+        self.initiator.evaluate(score_initiator)
+        self.responder.evaluate(score_responder)
         pass
