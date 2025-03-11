@@ -6,6 +6,8 @@ class Player():
         self.all_chips = []
         self.board = None
         self.goal = None
+        self.type = "base"
+        self.role = ""
         pass
 
     def offer_out(self):

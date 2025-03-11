@@ -6,10 +6,13 @@ class RandomPlayer(Player):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.all_offers = []
+        self.type = "random"
         
     def get_all_offers(self):
         self.all_offers = []
         opp_chips = [chip for chip in self.all_chips if chip not in self.chips]
+        
+        self.all_offers.append(((), ()))
         
         for send_size in range(0, len(self.chips) + 1):
             for receive_size in range(0, len(opp_chips)):
@@ -17,7 +20,6 @@ class RandomPlayer(Player):
                     for receive in combinations(opp_chips, receive_size):
                         if set(send) != set(receive): # sending and receiving the same chips is not useful
                             self.all_offers.append((tuple(send), tuple(receive)))
-        self.all_offers.append(None)
     
     def offer_out(self) -> tuple[tuple, tuple] | None:
         '''Player sends out an offer'''
@@ -32,5 +34,5 @@ class RandomPlayer(Player):
 
         return random.choice([True, False])
     
-    def evaluate(self) -> tuple:
+    def evaluate(self, score) -> tuple:
         pass

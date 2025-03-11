@@ -12,6 +12,9 @@ class GameMaster():
         self.initiator.board = board
         self.responder.board = board
         
+        self.initiator.role = "initiator"
+        self.responder.role = "responder"
+        
     def setup(self):
         self.board.new_board()          # creates a new playing board
         
@@ -35,8 +38,11 @@ class GameMaster():
         responder = 1 - initiator
             
         # remove chips given away by each player
-        self.initiator.chips = [x for x in self.initiator.chips if x not in set(offer[initiator])]
-        self.responder.chips = [x for x in self.initiator.chips if x not in set(offer[responder])]
+        for chip in offer[initiator]:
+            self.initiator.chips.remove(chip)
+            
+        for chip in offer[responder]:
+            self.responder.chips.remove(chip)
         
         # add chips received from other player
         self.initiator.chips.extend(offer[initiator])
@@ -46,47 +52,47 @@ class GameMaster():
     def play(self):
         self.setup()
         
-        i = 1
+        players = [self.initiator, self.responder]
+        
+        i = 0
         while True:
             offer = None
             accepted = None
-            if (i % 2) == 1:
-                offer = self.initiator.offer_out()
-                
-                if offer == None: # plater decides to end negotiations
-                    break
-                else:
-                    accepted = self.responder.offer_in(offer)
-                    self.initiator.offer_evaluate(offer, accepted)
-                    
-                    if accepted:
-                        self.handle_offer(offer, offer_maker="initiator")
+            
+            # obtain index for turns
+            sender = i % 2
+            receiver = 1 - sender
+            
+            offer = players[sender].offer_out()
+            
+            if offer == ((), ()): # player decides to end negotiations
+                break
             else:
-                offer = self.responder.offer_out()
+                accepted = players[receiver].offer_in(offer)
+                players[sender].offer_evaluate(offer, accepted)
                 
-                if offer == None:   # player decides to end negotiations
-                    break
-                else:
-                    accepted = self.initiator.offer_in(offer)
-                    self.responder.offer_evaluate(offer, accepted)
-                    if accepted:
-                        self.handle_offer(offer, offer_maker="responder")
+                if accepted:
+                    self.handle_offer(offer, offer_maker=players[sender].role)
             
             i += 1
             
         self.evaluate(penalty=i)
-            
+
     def evaluate(self, penalty):
-        best_position_initiator, unused_chips_initiator = find_best_path(self.initiator.chips, self.initiator.goal, self.board)
-        best_position_responder, unused_chips_responder = find_best_path(self.responder.chips, self.responder.goal, self.board)
-        distance_initiator = None #get_distance(best_position_initiator, self.initiator.goal)
-        distance_responder = None #get_distance(best_position_responder, self.responder.goal)
+        # Manhattan distance from best attainable position to goal and unused chips
+        distance_initiator, unused_chips_initiator = find_best_path(self.initiator.chips, self.initiator.goal, self.board)
+        distance_responder, unused_chips_responder = find_best_path(self.responder.chips, self.responder.goal, self.board)
         
-        win_score_initiator = 100 if distance_initiator == 0 else 0
-        win_score_responder = 100 if distance_responder == 0 else 0
-        score_initiator = distance_initiator * 10 - penalty + 5 * unused_chips_initiator + win_score_initiator
-        score_responder = distance_responder * 10 - penalty + 5 * unused_chips_responder + win_score_responder
+        print(self.board)
+        
+        print(f"GAME ENDED: distance initiator: {distance_initiator}, distance responder: {distance_responder}")
+        print(f"initiator goal: {self.initiator.goal}, responder goal: {self.responder.goal}")
+        print(f"initiator chips: {self.initiator.chips}, responder chips: {self.responder.chips} -- total count: {len(self.initiator.chips) + len(self.responder.chips)}")
+        
+        win_score_initiator = 500 if distance_initiator == 0 else 0
+        win_score_responder = 500 if distance_responder == 0 else 0
+        score_initiator = distance_initiator * 100 - penalty + 50 * unused_chips_initiator + win_score_initiator
+        score_responder = distance_responder * 100 - penalty + 50 * unused_chips_responder + win_score_responder
         
         self.initiator.evaluate(score_initiator)
         self.responder.evaluate(score_responder)
-        pass

@@ -5,6 +5,7 @@ class Board():
     def __init__(self):
         self.parent_board = self.generate_parent_board()    # board on which all boards will be based
         self.grid = None
+        self.start = (int(BOARD_SIZE/2), int(BOARD_SIZE/2))
 
     def generate_parent_board(self):
         board = []
@@ -18,7 +19,7 @@ class Board():
     
     def new_board(self):
         board = self.parent_board
-        board[round(BOARD_SIZE/2)][round(BOARD_SIZE/2)] = None # No colour needed where the players begin - in the middle
+        board[self.start[0]][self.start[1]] = None # No colour needed where the players begin - in the middle
         
         self.grid = board
         
@@ -28,3 +29,12 @@ class Board():
         ]
         
         return random.choice(valid_positions) if valid_positions else None
+        
+    def __str__(self):
+        string = ""
+        
+        for row in self.grid:
+            row_str = "[" + ", ".join(col[0] if col is not None else "#" for col in row) + "]\n"
+            string += row_str
+        
+        return string
