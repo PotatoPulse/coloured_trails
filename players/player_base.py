@@ -1,5 +1,3 @@
-
-
 class Player():
     def __init__(self):
         self.chips = []     # player chips on public display

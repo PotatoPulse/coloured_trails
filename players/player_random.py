@@ -1,5 +1,5 @@
 from players.player_base import Player
-from itertools import combinations, permutations
+from itertools import combinations
 import random
 
 class RandomPlayer(Player):
