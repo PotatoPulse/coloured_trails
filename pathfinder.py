@@ -1,6 +1,5 @@
 from utils.globals import BOARD_SIZE
 from board import Board
-import copy
 
 def manhattan_distance(pos1: tuple, pos2: tuple):
     ''' returns manhattan distance between 2 positions '''
@@ -9,14 +8,15 @@ def manhattan_distance(pos1: tuple, pos2: tuple):
 def find_best_path(chips: list, goal: tuple, board: Board):
     ''' returns distance from goal using chips as efficiently as possible '''
     
-    middle = (round(BOARD_SIZE/2), round(BOARD_SIZE/2))
+    middle = (int(BOARD_SIZE/2), int(BOARD_SIZE/2))
     visited = set()
     
     shortest_distance = float('inf') # distance between end position and goal
     unused_chips = 0
+    best_path = [] # for bug fixing
     
-    def iterate(visited, chips, pos, prev_distance):
-        nonlocal shortest_distance, unused_chips
+    def recurse(visited, chips, pos, prev_distance, path):
+        nonlocal shortest_distance, unused_chips, best_path
         
         distance = manhattan_distance(pos, goal)
         
@@ -27,8 +27,10 @@ def find_best_path(chips: list, goal: tuple, board: Board):
         if distance < shortest_distance:
             shortest_distance = distance
             unused_chips = len(chips)
+            best_path = path
         elif distance == shortest_distance:
             unused_chips = max(unused_chips, len(chips))
+            best_path = path
         
         visited.add(pos)
         
@@ -48,9 +50,12 @@ def find_best_path(chips: list, goal: tuple, board: Board):
             
             new_chips = chips.copy()
             new_chips.remove(colour)
+            new_path = path.copy()
+            new_path.append(colour)
             
-            iterate(visited.copy(), chips, pos=(row, col), prev_distance=distance)
+            recurse(visited.copy(), new_chips, pos=(row, col), prev_distance=distance, path=new_path)
     
-    iterate(visited, chips, middle, float('inf'))
+    recurse(visited, chips, middle, float('inf'), best_path)
+    print(best_path)
 
     return shortest_distance, unused_chips

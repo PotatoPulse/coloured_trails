@@ -23,9 +23,12 @@ class Board():
         
         self.grid = board
         
-    def random_pos(self):
+    def random_goal_pos(self):
         valid_positions = [
-            (r, c) for r in range(BOARD_SIZE) for c in range(BOARD_SIZE) if self.grid[r][c] is not None
+            (0, 0), (0, 1), (0, 3), (0, 4),
+            (1, 0), (1, 4),
+            (3, 0), (3, 4),
+            (4, 0), (4, 1), (4, 3), (4, 4),
         ]
         
         return random.choice(valid_positions) if valid_positions else None

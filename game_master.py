@@ -28,8 +28,8 @@ class GameMaster():
         self.responder.all_chips = all_chips
         
         # assign goal positions to players
-        self.initiator.goal = self.board.random_pos()
-        self.responder.goal = self.board.random_pos()
+        self.initiator.goal = self.board.random_goal_pos()
+        self.responder.goal = self.board.random_goal_pos()
 
     def handle_offer(self, offer, offer_maker):
         print(f"Offer accepted --- offer: {offer}, made by: {offer_maker}")
@@ -79,8 +79,11 @@ class GameMaster():
         self.evaluate(penalty=i)
 
     def evaluate(self, penalty):
+        print('')
         # Manhattan distance from best attainable position to goal and unused chips
+        print("initiator's best path: ", end='')
         distance_initiator, unused_chips_initiator = find_best_path(self.initiator.chips, self.initiator.goal, self.board)
+        print("responder's best path: ", end='')
         distance_responder, unused_chips_responder = find_best_path(self.responder.chips, self.responder.goal, self.board)
         
         print(self.board)
