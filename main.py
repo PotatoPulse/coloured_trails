@@ -3,7 +3,14 @@ from players.player_random import RandomPlayer
 from game_master import GameMaster
 
 def main():
-    board = Board()
+    valid_goals = [
+        (0, 0), (0, 1), (0, 3), (0, 4),
+        (1, 0), (1, 4),
+        (3, 0), (3, 4),
+        (4, 0), (4, 1), (4, 3), (4, 4),
+    ]
+    
+    board = Board(valid_goals)
     player1 = RandomPlayer()
     player2 = RandomPlayer()
     

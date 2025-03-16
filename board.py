@@ -2,10 +2,11 @@ from utils.globals import BOARD_SIZE, COLOURS
 import random
 
 class Board():
-    def __init__(self):
+    def __init__(self, valid_goals):
         self.parent_board = self.generate_parent_board()    # board on which all boards will be based
         self.grid = None
         self.start = (int(BOARD_SIZE/2), int(BOARD_SIZE/2))
+        self.valid_goals = valid_goals
 
     def generate_parent_board(self):
         board = []
@@ -24,14 +25,7 @@ class Board():
         self.grid = board
         
     def random_goal_pos(self):
-        valid_positions = [
-            (0, 0), (0, 1), (0, 3), (0, 4),
-            (1, 0), (1, 4),
-            (3, 0), (3, 4),
-            (4, 0), (4, 1), (4, 3), (4, 4),
-        ]
-        
-        return random.choice(valid_positions) if valid_positions else None
+        return random.choice(self.valid_goals)
         
     def __str__(self):
         string = ""

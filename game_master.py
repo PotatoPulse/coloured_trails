@@ -1,7 +1,7 @@
 from utils.globals import COLOURS, START_CHIPS
 from players.player_base import Player
 from board import Board
-from pathfinder import find_best_path
+from pathfinder import find_best_path, manhattan_distance
 import numpy as np
 
 class GameMaster():
@@ -82,8 +82,10 @@ class GameMaster():
         print('')
         # Manhattan distance from best attainable position to goal and unused chips
         print("initiator's best path: ", end='')
+        start_distance_initiator = manhattan_distance(self.board.start, self.initiator.goal)
         distance_initiator, unused_chips_initiator = find_best_path(self.initiator.chips, self.initiator.goal, self.board)
         print("responder's best path: ", end='')
+        start_distance_responder = manhattan_distance(self.board.start, self.responder.goal)
         distance_responder, unused_chips_responder = find_best_path(self.responder.chips, self.responder.goal, self.board)
         
         print(self.board)
@@ -94,8 +96,13 @@ class GameMaster():
         
         win_score_initiator = 500 if distance_initiator == 0 else 0
         win_score_responder = 500 if distance_responder == 0 else 0
-        score_initiator = distance_initiator * 100 - penalty + 50 * unused_chips_initiator + win_score_initiator
-        score_responder = distance_responder * 100 - penalty + 50 * unused_chips_responder + win_score_responder
+        steps_initiator = start_distance_initiator - distance_initiator
+        steps_responder = start_distance_responder - distance_responder
+        
+        # steps towards goal are worth 100 points, unused chips are worth 50 points, 
+        # reaching goal is worth 500 points and each round of negotiations is a penalty of 1
+        score_initiator = steps_initiator * 100 - penalty + 50 * unused_chips_initiator + win_score_initiator
+        score_responder = steps_responder * 100 - penalty + 50 * unused_chips_responder + win_score_responder
         
         self.initiator.evaluate(score_initiator)
         self.responder.evaluate(score_responder)
