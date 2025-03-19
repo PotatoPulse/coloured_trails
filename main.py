@@ -1,5 +1,6 @@
 from board import Board
 from players.player_random import RandomPlayer
+from players.player_DQN import DQNPlayer
 from game_master import GameMaster
 
 def main():
@@ -11,7 +12,14 @@ def main():
     ]
     
     board = Board(valid_goals)
-    player1 = RandomPlayer()
+    player1 = DQNPlayer(epsilon_start = 0.5, 
+                 epsilon_end = 0.05,
+                 epsilon_decay = 1000,
+                 gamma = 0.99,
+                 lr = 1e-4,
+                 board = board,
+                 batch_size = 32,
+                 name = "John")
     player2 = RandomPlayer()
     
     game = GameMaster(initiator=player1, responder=player2, board=board)

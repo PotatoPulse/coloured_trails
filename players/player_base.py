@@ -1,12 +1,14 @@
+from utils.globals import CHIPS
+
 class Player():
     def __init__(self):
         self.chips = []     # player chips on public display
-        self.all_chips = []
+        self.all_chips = CHIPS
         self.board = None
         self.goal = None
+        self.goal_idx = None
         self.type = "base"
         self.role = ""
-        pass
 
     def offer_out(self):
         '''Player sends out an offer'''

@@ -10,6 +10,7 @@ def find_best_path(chips: list, goal: tuple, board: Board):
     
     middle = (int(BOARD_SIZE/2), int(BOARD_SIZE/2))
     visited = set()
+    chips = list(chips)
     
     shortest_distance = float('inf') # distance between end position and goal
     unused_chips = 0
@@ -56,6 +57,5 @@ def find_best_path(chips: list, goal: tuple, board: Board):
             recurse(visited.copy(), new_chips, pos=(row, col), prev_distance=distance, path=new_path)
     
     recurse(visited, chips, middle, float('inf'), best_path)
-    print(best_path)
 
     return shortest_distance, unused_chips

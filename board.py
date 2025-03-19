@@ -7,6 +7,7 @@ class Board():
         self.grid = None
         self.start = (int(BOARD_SIZE/2), int(BOARD_SIZE/2))
         self.valid_goals = valid_goals
+        self.code = ""
 
     def generate_parent_board(self):
         board = []
@@ -23,9 +24,20 @@ class Board():
         board[self.start[0]][self.start[1]] = None # No colour needed where the players begin - in the middle
         
         self.grid = board
+        self.update_code()
         
     def random_goal_pos(self):
-        return random.choice(self.valid_goals)
+        index, goal = random.choice(list(enumerate(self.valid_goals)))
+        return goal, index
+    
+    def update_code(self):
+        code = ""
+        for row in self.grid:
+            for colour in row:
+                if not colour == None:
+                    code += colour[0]
+        
+        self.code = code
         
     def __str__(self):
         string = ""

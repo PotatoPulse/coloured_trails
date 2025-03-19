@@ -1,8 +1,8 @@
-from utils.globals import COLOURS, START_CHIPS
+from utils.globals import COLOURS, START_CHIPS, CHIPS
 from players.player_base import Player
 from board import Board
 from pathfinder import find_best_path, manhattan_distance
-import numpy as np
+import random
 
 class GameMaster():
     def __init__(self, initiator: Player, responder: Player, board: Board):
@@ -18,36 +18,31 @@ class GameMaster():
     def setup(self):
         self.board.new_board()          # creates a new playing board
         
+        for player in [self.initiator, self.responder]:
+            # assign goal positions to players
+            player.goal, player.goal_idx = self.board.random_goal_pos()
+            
+            # give players access to board
+            player.board = self.board
+            if player.type == "DQN":
+                player.compute_r_table()
+        
+        chips = CHIPS.copy()
+        
         # setting up initial chips for players
-        self.initiator.chips = [np.random.choice(COLOURS) for _ in range(START_CHIPS)]
-        self.responder.chips = [np.random.choice(COLOURS) for _ in range(START_CHIPS)]
-        
-        # giving players access to information of what chips are in play
-        all_chips = self.initiator.chips + self.responder.chips
-        self.initiator.all_chips = all_chips
-        self.responder.all_chips = all_chips
-        
-        # assign goal positions to players
-        self.initiator.goal = self.board.random_goal_pos()
-        self.responder.goal = self.board.random_goal_pos()
+        self.initiator.chips = random.sample(chips, START_CHIPS)
+        for chip in self.initiator.chips:
+            chips.remove(chip)
+        self.responder.chips = chips
 
     def handle_offer(self, offer, offer_maker):
         print(f"Offer accepted --- offer: {offer}, made by: {offer_maker}")
         # obtain initiator and responder index in offer
         initiator = 0 if offer_maker == "initiator" else 1
         responder = 1 - initiator
-            
-        # remove chips given away by each player
-        for chip in offer[initiator]:
-            self.initiator.chips.remove(chip)
-            
-        for chip in offer[responder]:
-            self.responder.chips.remove(chip)
         
-        # add chips received from other player
-        self.initiator.chips.extend(offer[initiator])
-        self.responder.chips.extend(offer[responder])
-            
+        self.initiator.chips = offer[initiator]
+        self.responder.chips = offer[responder]
         
     def play(self):
         self.setup()
@@ -65,7 +60,7 @@ class GameMaster():
             
             offer = players[sender].offer_out()
             
-            if offer == ((), ()): # player decides to end negotiations
+            if offer == (players[sender].chips, players[receiver].chips): # player decides to end negotiations
                 break
             else:
                 accepted = players[receiver].offer_in(offer)
@@ -75,16 +70,14 @@ class GameMaster():
                     self.handle_offer(offer, offer_maker=players[sender].role)
             
             i += 1
-            
+        
         self.evaluate(penalty=i)
 
     def evaluate(self, penalty):
         print('')
         # Manhattan distance from best attainable position to goal and unused chips
-        print("initiator's best path: ", end='')
         start_distance_initiator = manhattan_distance(self.board.start, self.initiator.goal)
         distance_initiator, unused_chips_initiator = find_best_path(self.initiator.chips, self.initiator.goal, self.board)
-        print("responder's best path: ", end='')
         start_distance_responder = manhattan_distance(self.board.start, self.responder.goal)
         distance_responder, unused_chips_responder = find_best_path(self.responder.chips, self.responder.goal, self.board)
         
