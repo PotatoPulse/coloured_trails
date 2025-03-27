@@ -68,7 +68,6 @@ class GameMaster():
             offer = players[sender].offer_out()
             
             if offer == (players[sender].chips, players[receiver].chips): # player decides to end negotiations
-                # break
                 games += 1
                 self.evaluate(penalty=i)
                 self.setup()
@@ -87,6 +86,8 @@ class GameMaster():
             i += 1
         
         self.evaluate(penalty=i)
+        print(self.initiator.r_table.keys())
+        print(len(self.initiator.r_table.keys()))
         print("Total score initiator:", self.total_score_initiator)
         print("Total score responder:", self.total_score_responder)
 

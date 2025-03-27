@@ -9,8 +9,6 @@ import torch.nn as nn
 import random
 import numpy as np
 
-# DQN agent, taking into account 1 possible board
-
 class DQN(nn.Module):
     def __init__(self, n_states, n_actions):
         super(DQN, self).__init__()
@@ -49,7 +47,7 @@ class DQNPlayer(Player):
         
         # number of states = possible board configurations + possible goal states 
         # + current chip distribution + chip distribution resulting from last offer
-        n_states = 1 + 12 + 8 + 8 
+        n_states = 120 + 12 + 8 + 8 
         
         # actions = all possible offers
         n_actions = len(self.all_offers)
@@ -68,10 +66,13 @@ class DQNPlayer(Player):
         self.r_table = defaultdict(lambda: defaultdict(dict))
     
     def get_state(self):
-        board_state = torch.tensor([1], dtype=torch.float32)    # only 1 board for now
+        board_state = torch.zeros(120, dtype=torch.float32)    # only 1 board for now
         goal_state = torch.zeros(12, dtype=torch.float32)       # 12 possible goals
         chip_state = torch.zeros(8, dtype=torch.float32)        # 8 chips
         prev_offer_state = torch.zeros(8, dtype=torch.float32)  # 8 chips in offer distribution
+        
+        board_idx = list(self.r_table.keys()).index(self.board.code)
+        board_state[board_idx] = 1
         
         goal_state[self.goal_idx] = 1
         

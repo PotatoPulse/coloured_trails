@@ -20,8 +20,10 @@ class Board():
         return board
     
     def new_board(self):
-        board = self.parent_board
-        board[self.start[0]][self.start[1]] = None # No colour needed where the players begin - in the middle
+        board = [row.copy() for row in self.parent_board]
+        random.shuffle(board)   # shuffle rows
+        
+        board[self.start[0]][self.start[1]] = None  # No colour needed where the players begin - in the middle
         
         self.grid = board
         self.update_code()
