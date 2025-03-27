@@ -23,7 +23,7 @@ def main():
     player2 = RandomPlayer()
     
     game = GameMaster(initiator=player1, responder=player2, board=board)
-    game.play()
+    game.play(max_games=1000)
 
 if __name__ == "__main__":
     main()

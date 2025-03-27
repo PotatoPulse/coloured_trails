@@ -51,8 +51,8 @@ class DQNPlayer(Player):
         # + current chip distribution + chip distribution resulting from last offer
         n_states = 1 + 12 + 8 + 8 
         
-        # new chip distribution
-        n_actions = 8
+        # actions = all possible offers
+        n_actions = len(self.all_offers)
         
         # initiate policy and target net
         self.policy_net = DQN(n_states, n_actions)
@@ -105,34 +105,23 @@ class DQNPlayer(Player):
         if random.random() > epsilon:
             with torch.no_grad():
                 raw_action = self.policy_net(state)
-                binary_action = (raw_action > 0.5).int()
+                action_index = raw_action.argmax().item()
+                action = self.all_offers[action_index]
         else:
-            binary_action = torch.randint(0, 2, (1, 8), dtype=torch.int)
+            action = random.choice(self.all_offers)
         
-        return binary_action
+        return action
     
     def offer_out(self):
         state = self.get_state()
         
-        if self.transition[0] != None:
-            #update next_state in transition and store to memory
-            self.transition[3] = state
-            self.store_transition()
-        
-        binary_action = self.take_action(state)
+        action = self.take_action(state)
         
         self.transition[0] = state 
-        self.transition[1] = binary_action
+        self.transition[1] = torch.tensor([[self.all_offers.index(action)]])  # store action as index within all_offers list
         
-        offer_me = []
-        offer_opp = []
-        
-        binary_action = binary_action.flatten().tolist()
-        for idx, chip in enumerate(CHIPS):
-            if binary_action[idx]:
-                offer_me.append(chip)
-            else:
-                offer_opp.append(chip)
+        offer_me = action[0]
+        offer_opp = action[1]
         
         return (tuple(offer_me), tuple(offer_opp))
     
@@ -141,10 +130,14 @@ class DQNPlayer(Player):
         
         state = self.get_state()
         
-        binary_action = self.take_action(state)
-        binary_action = binary_action.flatten().tolist()
+        if self.transition[0] != None and self.transition[2] != None:
+            # update next_state in transition and store to memory
+            self.transition[3] = state
+            self.store_transition()
         
-        action_me = [CHIPS[idx] for idx, bool in enumerate(binary_action) if bool]
+        action = self.take_action(state)
+        
+        action_me = action[0]
                 
         if sorted(action_me) == sorted(offer[1]):
             return True     # accept offer
@@ -153,21 +146,26 @@ class DQNPlayer(Player):
             
     def offer_evaluate(self, offer, accepted):
         if accepted:
-            reward = self.r_table[self.board.code][self.goal][tuple(sorted(offer[0]))]
-            next_state = None #How do we know the next board we'll end up in?? or: should new board be considered?
+            self.transition[2] = self.r_table[self.board.code][self.goal][tuple(sorted(offer[0]))] # store reward
+            self.store_transition()
         else:
-            reward = self.r_table[self.board.code][self.goal][tuple(sorted(self.chips))]
-            next_state = self.transition[0]
-            
-        self.transition[2] = reward     # possibly extra penalty/reward depending on accepted
-        self.transition[3] = next_state
+            self.transition[2] = 0 # reward
+            # reward = self.r_table[self.board.code][self.goal][tuple(sorted(self.chips))] # 0 reward
+
+            # wait for next state to be found out next round
     
     def compute_r_table(self):
         ''' computes rewards the agent would get over all possible chip distributions and goals on possible boards '''
+        if self.board.code in self.r_table.keys():
+            return
+        
         print(f"Computing reward table for {self.name}...")
+        
         # iterate over goals
         for goal in self.board.valid_goals:
             start_distance = manhattan_distance(self.board.start, goal)
+            
+            self.r_table[self.board.code][goal][()] = 0
             
             # iterate over chips distributions
             for n_chips in range(1, len(self.all_chips)+1):
@@ -214,6 +212,7 @@ class DQNPlayer(Player):
         with torch.no_grad():
             next_state_values[non_final_mask] = self.target_net(non_final_next_states).max(1)[0]
         
+        # bellman equation
         expected_state_action_values = (next_state_values * self.gamma) + reward_batch
         
         criterion = nn.SmoothL1Loss()

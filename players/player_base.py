@@ -1,4 +1,6 @@
 from utils.globals import CHIPS
+from itertools import combinations, chain
+from collections import Counter
 
 class Player():
     def __init__(self):
@@ -9,6 +11,16 @@ class Player():
         self.goal_idx = None
         self.type = "base"
         self.role = ""
+        self.all_offers = []
+        self.get_all_offers()
+        
+    def get_all_offers(self):
+        all_chip_sets = list(chain.from_iterable(combinations(CHIPS, r) for r in range(len(CHIPS) + 1)))
+        
+        for my_new_chips in all_chip_sets:
+            opp_new_chips = (Counter(CHIPS) - Counter(my_new_chips)).elements()
+            
+            self.all_offers.append((tuple(sorted(my_new_chips)), tuple(sorted(opp_new_chips))))
 
     def offer_out(self):
         '''Player sends out an offer'''

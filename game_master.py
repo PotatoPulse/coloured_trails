@@ -15,6 +15,9 @@ class GameMaster():
         self.initiator.role = "initiator"
         self.responder.role = "responder"
         
+        self.total_score_initiator = 0
+        self.total_score_responder = 0
+        
     def setup(self):
         self.board.new_board()          # creates a new playing board
         
@@ -44,13 +47,17 @@ class GameMaster():
         self.initiator.chips = offer[initiator]
         self.responder.chips = offer[responder]
         
-    def play(self):
+    def play(self, max_games):
         self.setup()
         
         players = [self.initiator, self.responder]
         
+        games = 0
         i = 0
         while True:
+            if games >= max_games:
+                break
+            
             offer = None
             accepted = None
             
@@ -61,17 +68,27 @@ class GameMaster():
             offer = players[sender].offer_out()
             
             if offer == (players[sender].chips, players[receiver].chips): # player decides to end negotiations
-                break
+                # break
+                games += 1
+                self.evaluate(penalty=i)
+                self.setup()
+                i = 0
             else:
                 accepted = players[receiver].offer_in(offer)
                 players[sender].offer_evaluate(offer, accepted)
                 
                 if accepted:
                     self.handle_offer(offer, offer_maker=players[sender].role)
+                    games += 1
+                    self.evaluate(penalty=i)
+                    self.setup()
+                    i = 0
             
             i += 1
         
         self.evaluate(penalty=i)
+        print("Total score initiator:", self.total_score_initiator)
+        print("Total score responder:", self.total_score_responder)
 
     def evaluate(self, penalty):
         print('')
@@ -99,3 +116,6 @@ class GameMaster():
         
         self.initiator.evaluate(score_initiator)
         self.responder.evaluate(score_responder)
+        
+        self.total_score_initiator += score_initiator
+        self.total_score_responder += score_responder
