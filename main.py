@@ -1,6 +1,8 @@
 from board import Board
 from players.player_random import RandomPlayer
 from players.player_DQN import DQNPlayer
+from players.player_accept import AcceptPlayer
+from players.player_FOToM import FOToMPlayer
 from game_master import GameMaster
 
 def main():
@@ -12,7 +14,16 @@ def main():
     ]
     
     board = Board(valid_goals)
-    player1 = DQNPlayer(epsilon_start = 0.5, 
+    ToM_player = FOToMPlayer(epsilon_start = 0.5, 
+                 epsilon_end = 0.05,
+                 epsilon_decay = 1000,
+                 gamma = 0.99,
+                 lr = 1e-4,
+                 board = board,
+                 batch_size = 32,
+                 name = "Daniel")
+    
+    DQN_player1 = DQNPlayer(epsilon_start = 0.5, 
                  epsilon_end = 0.05,
                  epsilon_decay = 1000,
                  gamma = 0.99,
@@ -20,10 +31,32 @@ def main():
                  board = board,
                  batch_size = 32,
                  name = "John")
-    player2 = RandomPlayer()
     
-    game = GameMaster(initiator=player1, responder=player2, board=board)
-    game.play(max_games=10000)
+    DQN_player2 = DQNPlayer(epsilon_start = 0.5, 
+                 epsilon_end = 0.05,
+                 epsilon_decay = 1000,
+                 gamma = 0.99,
+                 lr = 1e-4,
+                 board = board,
+                 batch_size = 32,
+                 name = "Sarah")
+    
+    random_player = RandomPlayer()
+    
+    # initialising DQN Q-values by playing games against player who always accepts
+    training_dummy = AcceptPlayer()
+    game = GameMaster(initiator=training_dummy, responder=ToM_player, board=board)
+    game.play(max_games=100)
+    
+    '''
+    # initialising DQN Q-values by playing games against player who always accepts
+    training_dummy = AcceptingPlayer()
+    game = GameMaster(initiator=training_dummy, responder=player2, board=board)
+    game.play(max_games=1000)
+    '''
+    
+    game = GameMaster(initiator=random_player, responder=ToM_player, board=board)
+    game.play(max_games=1000)
 
 if __name__ == "__main__":
     main()

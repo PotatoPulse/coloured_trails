@@ -24,11 +24,6 @@ class GameMaster():
         for player in [self.initiator, self.responder]:
             # assign goal positions to players
             player.goal, player.goal_idx = self.board.random_goal_pos()
-            
-            # give players access to board
-            player.board = self.board
-            if player.type == "DQN":
-                player.compute_r_table()
         
         chips = CHIPS.copy()
         
@@ -51,6 +46,10 @@ class GameMaster():
         self.setup()
         
         players = [self.initiator, self.responder]
+        
+        for player in players:
+            if player.type in ("DQN", "FOToM"):
+                player.transition = [None]*4
         
         games = 0
         i = 0
@@ -86,8 +85,6 @@ class GameMaster():
             i += 1
         
         self.evaluate(penalty=i)
-        print(self.initiator.r_table.keys())
-        print(len(self.initiator.r_table.keys()))
         print("Total score initiator:", self.total_score_initiator)
         print("Total score responder:", self.total_score_responder)
 

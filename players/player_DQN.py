@@ -41,6 +41,7 @@ class DQNPlayer(Player):
         self.lr = lr                        # learning rate
         self.batch_size = batch_size
         self.steps = 0                      # actions completed
+        self.start_reward = 0
         self.prev_offer = None              # offer previously raised by opponent
         self.board = board
         self.name = name
@@ -66,13 +67,10 @@ class DQNPlayer(Player):
         self.r_table = defaultdict(lambda: defaultdict(dict))
     
     def get_state(self):
-        board_state = torch.zeros(120, dtype=torch.float32)    # only 1 board for now
         goal_state = torch.zeros(12, dtype=torch.float32)       # 12 possible goals
         chip_state = torch.zeros(8, dtype=torch.float32)        # 8 chips
         prev_offer_state = torch.zeros(8, dtype=torch.float32)  # 8 chips in offer distribution
-        
-        board_idx = list(self.r_table.keys()).index(self.board.code)
-        board_state[board_idx] = 1
+        board_state = torch.zeros(120, dtype=torch.float32)    # 5! = 120 possible boards
         
         goal_state[self.goal_idx] = 1
         
@@ -88,10 +86,13 @@ class DQNPlayer(Player):
             offer_counts = Counter(self.prev_offer[1])      # second index is chips assigned to us
             for idx, chip in enumerate(CHIPS):
                 if offer_counts[chip] > 0:
-                    chip_state[idx] = 1
+                    prev_offer_state[idx] = 1
                     offer_counts[chip] -= 1
+                    
+        board_idx = list(self.r_table.keys()).index(self.board.code)
+        board_state[board_idx] = 1
         
-        state = torch.cat((board_state, goal_state, chip_state, prev_offer_state), dim=0)
+        state = torch.cat((goal_state, chip_state, prev_offer_state, board_state), dim=0)
         
         return state.view(1, -1)
     
@@ -114,6 +115,10 @@ class DQNPlayer(Player):
         return action
     
     def offer_out(self):
+        if self.transition[0] == None:
+            self.compute_r_table()
+            self.start_reward = self.r_table[self.board.code][self.goal][tuple(sorted(self.chips))]
+        
         state = self.get_state()
         
         action = self.take_action(state)
@@ -127,6 +132,10 @@ class DQNPlayer(Player):
         return (tuple(offer_me), tuple(offer_opp))
     
     def offer_in(self, offer):
+        if self.transition[0] == None:
+            self.compute_r_table()
+            self.start_reward = self.r_table[self.board.code][self.goal][tuple(sorted(self.chips))]
+        
         self.prev_offer = offer
         
         state = self.get_state()
@@ -144,10 +153,11 @@ class DQNPlayer(Player):
             return True     # accept offer
         else:
             return False    # decline offer
-            
+
     def offer_evaluate(self, offer, accepted):
         if accepted:
-            self.transition[2] = self.r_table[self.board.code][self.goal][tuple(sorted(offer[0]))] # store reward
+            # initial reward - new reward
+            self.transition[2] = self.r_table[self.board.code][self.goal][tuple(sorted(offer[0]))] - self.start_reward # store reward
             self.store_transition()
         else:
             self.transition[2] = 0 # reward
@@ -184,10 +194,13 @@ class DQNPlayer(Player):
                     self.r_table[self.board.code][goal][tuple(sorted(chips_owned))] = reward
     
     def store_transition(self):
+        if None in self.transition[:3]:
+            print("NONE FOUND IN TRANSITION", self.transition)
+            return
         self.memory.append(self.transition)
         self.optimise_model()
         self.transition = [None] * 4
-            
+    
     def sample_memory(self):
         return random.sample(self.memory, self.batch_size)
     
@@ -205,13 +218,17 @@ class DQNPlayer(Player):
         next_state_batch = batch[3]
         
         non_final_mask = torch.tensor(tuple(map(lambda s: s is not None, next_state_batch)), dtype=torch.bool)
-        non_final_next_states = torch.cat([s for s in next_state_batch if s is not None])
+        if any(s is not None for s in next_state_batch):
+            non_final_next_states = torch.cat([s for s in next_state_batch if s is not None])
+        else:
+            non_final_next_states = torch.empty((0,) + state_batch.shape[1:])
         
         state_action_values = self.policy_net(state_batch).gather(1, action_batch.to(dtype=torch.int64))
         
         next_state_values = torch.zeros(self.batch_size)
         with torch.no_grad():
-            next_state_values[non_final_mask] = self.target_net(non_final_next_states).max(1)[0]
+            if non_final_mask.any():
+                next_state_values[non_final_mask] = self.target_net(non_final_next_states).max(1)[0]
         
         # bellman equation
         expected_state_action_values = (next_state_values * self.gamma) + reward_batch
