@@ -62,6 +62,10 @@ class FOToMPlayer(Player):
             action_index = raw_action.argmax().item()
             action = self.all_offers[action_index]
             
+            # accept or decline?
+            if sorted(action[1]) == sorted(offer[0]):
+                continue
+            
             next_state = state.clone()
             next_prev_offer = torch.tensor([chip in action[1] for chip in CHIPS], dtype=torch.float32)
             next_state[20:28] = next_prev_offer
@@ -71,7 +75,7 @@ class FOToMPlayer(Player):
             
             if max_value.item() > max_return:
                 max_return = max_value.item()
-                best_action = self.all_offers[action_index.item()]
+                best_action = offer
                 
         return best_action
         

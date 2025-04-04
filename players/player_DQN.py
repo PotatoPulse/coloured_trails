@@ -148,7 +148,7 @@ class DQNPlayer(Player):
         action = self.take_action(state)
         
         action_me = action[0]
-                
+        
         if sorted(action_me) == sorted(offer[1]):
             return True     # accept offer
         else:

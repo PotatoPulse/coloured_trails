@@ -4,6 +4,8 @@ from players.player_DQN import DQNPlayer
 from players.player_accept import AcceptPlayer
 from players.player_FOToM import FOToMPlayer
 from game_master import GameMaster
+import pandas as pd
+import matplotlib.pyplot as plt
 
 def main():
     valid_goals = [
@@ -19,6 +21,7 @@ def main():
                  epsilon_decay = 1000,
                  gamma = 0.99,
                  lr = 1e-4,
+                 # prediction_lr = 0.1, # 0.5, 0.9
                  board = board,
                  batch_size = 32,
                  name = "Daniel")
@@ -44,19 +47,39 @@ def main():
     random_player = RandomPlayer()
     
     # initialising DQN Q-values by playing games against player who always accepts
+    '''
     training_dummy = AcceptPlayer()
-    game = GameMaster(initiator=training_dummy, responder=ToM_player, board=board)
-    game.play(max_games=100)
-    
+    game = GameMaster(initiator=training_dummy, responder=DQN_player1, board=board)
+    game.play(max_games=1000)
     '''
+    
     # initialising DQN Q-values by playing games against player who always accepts
-    training_dummy = AcceptingPlayer()
-    game = GameMaster(initiator=training_dummy, responder=player2, board=board)
+    '''
+    training_dummy = AcceptPlayer()
+    game = GameMaster(initiator=training_dummy, responder=DQN_player2, board=board)
     game.play(max_games=1000)
     '''
     
-    game = GameMaster(initiator=random_player, responder=ToM_player, board=board)
+    initiator = DQN_player1
+    responder = DQN_player2
+    game = GameMaster(initiator=initiator, responder=responder, board=board)
     game.play(max_games=1000)
+    
+    # plot results
+    df = pd.read_csv(f"logs/log-{initiator.type}-{responder.type}.csv")
+    
+    plt.figure(figsize=(10, 6))
+    plt.plot(df['total_score_initiator'], label='Initiator', linewidth=2)
+    plt.plot(df['total_score_responder'], label='Responder', linewidth=2)
+    
+    plt.xlabel('Game #')
+    plt.ylabel('Total Score')
+    plt.title('Score Progression Over Games')
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+
+    plt.show()
 
 if __name__ == "__main__":
     main()

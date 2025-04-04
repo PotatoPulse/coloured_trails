@@ -3,6 +3,8 @@ from players.player_base import Player
 from board import Board
 from pathfinder import find_best_path, manhattan_distance
 import random
+import os
+import csv
 
 class GameMaster():
     def __init__(self, initiator: Player, responder: Player, board: Board):
@@ -24,6 +26,9 @@ class GameMaster():
         for player in [self.initiator, self.responder]:
             # assign goal positions to players
             player.goal, player.goal_idx = self.board.random_goal_pos()
+            
+            if player.type in ("DQN", "FOToM"):
+                player.transition = [None]*4
         
         chips = CHIPS.copy()
         
@@ -43,6 +48,7 @@ class GameMaster():
         self.responder.chips = offer[responder]
         
     def play(self, max_games):
+        self.init_log_file()
         self.setup()
         
         players = [self.initiator, self.responder]
@@ -56,6 +62,12 @@ class GameMaster():
         while True:
             if games >= max_games:
                 break
+            
+            if i >= 100:
+                games += 1
+                self.evaluate(penalty=i)
+                self.setup()
+                i = 0
             
             offer = None
             accepted = None
@@ -117,3 +129,21 @@ class GameMaster():
         
         self.total_score_initiator += score_initiator
         self.total_score_responder += score_responder
+        
+        self.log_scores()
+        
+    def init_log_file(self):
+        log_file = f'logs/log-{self.initiator.type}-{self.responder.type}.csv'
+        os.makedirs(os.path.dirname(log_file), exist_ok=True)
+
+        with open(log_file, 'w', newline='') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(['total_score_initiator', 'total_score_responder'])
+        
+    def log_scores(self):
+        log_file = f'logs/log-{self.initiator.type}-{self.responder.type}.csv'
+        
+        with open(log_file, "a", newline='') as csv_file:
+            writer = csv.writer(csv_file)
+        
+            writer.writerow([self.total_score_initiator, self.total_score_responder])
