@@ -129,7 +129,7 @@ class DQNPlayer(Player):
         offer_me = action[0]
         offer_opp = action[1]
         
-        return (tuple(offer_me), tuple(offer_opp))
+        return (sorted(tuple(offer_me)), sorted(tuple(offer_opp)))
     
     def offer_in(self, offer):
         if self.transition[0] == None:

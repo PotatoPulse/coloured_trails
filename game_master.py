@@ -60,10 +60,16 @@ class GameMaster():
         games = 0
         i = 0
         while True:
+            for idx, player in enumerate(players):
+                if player.type == "FOToM":
+                    if player.goal_guess == players[1 - idx].goal:
+                        print("## Correct goal guessed ##")
+            
             if games >= max_games:
                 break
             
             if i >= 100:
+                print("~ Max negotiations reached ~")
                 games += 1
                 self.evaluate(penalty=i)
                 self.setup()

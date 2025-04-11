@@ -21,7 +21,7 @@ def main():
                  epsilon_decay = 1000,
                  gamma = 0.99,
                  lr = 1e-4,
-                 # prediction_lr = 0.1, # 0.5, 0.9
+                 goal_lr = 0.1, # 0.5, 0.9
                  board = board,
                  batch_size = 32,
                  name = "Daniel")
@@ -47,21 +47,17 @@ def main():
     random_player = RandomPlayer()
     
     # initialising DQN Q-values by playing games against player who always accepts
-    '''
     training_dummy = AcceptPlayer()
-    game = GameMaster(initiator=training_dummy, responder=DQN_player1, board=board)
+    game = GameMaster(initiator=training_dummy, responder=ToM_player, board=board)
     game.play(max_games=1000)
-    '''
     
     # initialising DQN Q-values by playing games against player who always accepts
-    '''
     training_dummy = AcceptPlayer()
     game = GameMaster(initiator=training_dummy, responder=DQN_player2, board=board)
     game.play(max_games=1000)
-    '''
     
-    initiator = DQN_player1
-    responder = DQN_player2
+    initiator = DQN_player2
+    responder = ToM_player
     game = GameMaster(initiator=initiator, responder=responder, board=board)
     game.play(max_games=1000)
     

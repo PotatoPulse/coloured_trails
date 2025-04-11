@@ -5,6 +5,7 @@ from players.player_DQN import DQNPlayer
 import torch
 import numpy as np
 import random
+from collections import Counter
 
 class FOToMPlayer(Player):
     def __init__(self,
@@ -13,71 +14,132 @@ class FOToMPlayer(Player):
                  epsilon_decay: float,
                  gamma: float,
                  lr: float,
+                 goal_lr: float,
                  board: Board,
                  batch_size: int = 32,
                  name: str = "FOToM_player",
                  *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.type="FOToM"
+        self.type = "FOToM"
         self.DQN = DQNPlayer(epsilon_start, epsilon_end, epsilon_decay, gamma, lr, board, batch_size, name+"_puppet")
         self.epsilon_start = epsilon_start
         self.epsilon_end = epsilon_end
         self.epsilon_decay = epsilon_decay
+        self.goal_lr = goal_lr
         self.name = name
         self.board = board
         self.prev_offer = None
+        self.own_prev_offer = None
         self.goal_guess = None
+        self.goal_distribution = [1/12]*12
         self.start_reward = None
         
         self.transition = [None]*4
         
         self.steps = 0
         
+    def encode_offer(self, offer_me):
+        """Encodes offer as a count vector aligned with CHIPS (handles duplicates correctly)."""
+        offer_counter = Counter(offer_me)
+        result = []
+
+        for chip in CHIPS:
+            if offer_counter[chip] > 0:
+                result.append(1.0)
+                offer_counter[chip] -= 1
+            else:
+                result.append(0.0)
+
+        return torch.tensor(result, dtype=torch.float32)
+    
+    def construct_opponent_state(self, state, goal, prev_offer=None):
+        """Builds opponent's state given a guessed goal and optional previous offer 
+        (where prev_offer only contains chips that would be assigned to opponent)."""
+        state = state.view(-1)
+        opponent_state = state.clone()
+
+        # set up opponent goal state
+        goal_vec = torch.zeros(12)
+        goal_vec[VALID_GOALS.index(goal)] = 1
+        opponent_state[:12] = goal_vec
+
+        # flip chip distribution
+        distribution = state[12:20]
+        opponent_state[12:20] = 1 - distribution
+
+        # encode previous offer if provided
+        if prev_offer is not None:
+            opponent_state[20:28] = self.encode_offer(prev_offer)
+
+        return opponent_state
+    
+    def predict_action(self, state):
+        with torch.no_grad():
+            q_values = self.DQN.policy_net(state.unsqueeze(0))
+            best_idx = q_values.argmax().item()
+            best_action = self.all_offers[best_idx]
+            best_value = q_values[0, best_idx].item()
+        return best_action, best_value
+    
+    def offers_match(self, a, b):
+        return sorted(a) == sorted(b)
+        
     def predict_best_action(self, state):
         state = state.view(-1)
-        
-        if self.goal_guess == None:
+
+        if self.goal_guess is None:
             self.goal_guess = self.goal
-        
-        opponent_state = state.clone()
-        
-        # set up guessed goal for opponent
-        new_goal_state = torch.zeros(12)
-        new_goal_state[VALID_GOALS.index(self.goal_guess)] = 1
-        opponent_state[:12] = new_goal_state
-        
-        # set up chip distribution for opponent
-        distribution = state[12:20]
-        flipped_distribution = 1 - distribution
-        opponent_state[12:20] = flipped_distribution
-        
-        max_return = (-float('inf'))
+
+        max_return = -float('inf')
         best_action = None
+
         for offer in self.all_offers:
-            # simulate action using DQN net
-            opponent_prev_offer = torch.tensor([chip in offer[1] for chip in CHIPS], dtype=torch.float32)
-            opponent_state[20:28] = opponent_prev_offer
-            
-            raw_action = self.DQN.policy_net(opponent_state.unsqueeze(0))
-            action_index = raw_action.argmax().item()
-            action = self.all_offers[action_index]
-            
-            # accept or decline?
-            if sorted(action[1]) == sorted(offer[0]):
+            # simulate opponent response
+            opponent_state = self.construct_opponent_state(state, self.goal_guess, offer[1])
+            predicted_response, _ = self.predict_action(opponent_state)
+
+            # if opponent would accept, skip
+            if self.offers_match(predicted_response[1], offer[0]):
                 continue
-            
+
+            # simulate next state if rejected
             next_state = state.clone()
-            next_prev_offer = torch.tensor([chip in action[1] for chip in CHIPS], dtype=torch.float32)
-            next_state[20:28] = next_prev_offer
-            
-            raw_action = self.DQN.policy_net(next_state.unsqueeze(0))
-            max_value, action_index = raw_action.max(dim=1)
-            
-            if max_value.item() > max_return:
-                max_return = max_value.item()
+            next_state[20:28] = self.encode_offer(predicted_response[1])
+
+            _, value = self.predict_action(next_state)
+
+            if value > max_return:
+                max_return = value
                 best_action = offer
-                
+
         return best_action
+        
+    def guess_opp_goal(self, offer, state):
+        # if no prev offer made, use the chip distribution
+        if self.own_prev_offer == None:
+            opp_chips = (Counter(CHIPS) - Counter(self.chips)).elements()
+            self.own_prev_offer = [[], opp_chips] #if chip is not in self.chips, it should go in index 1
+        
+        state = state.view(-1)
+        updates = np.zeros(12)
+
+        for goal_idx, goal in enumerate(VALID_GOALS):
+            opponent_state = self.construct_opponent_state(state, goal, self.own_prev_offer[1])
+            predicted_action, _ = self.predict_action(opponent_state)
+
+            if self.offers_match(predicted_action[0], offer[1]):
+                updates[goal_idx] = 1
+            else:
+                updates[goal_idx] = -1
+
+        updates *= self.goal_lr
+
+        new_distribution = self.goal_distribution + updates
+        new_distribution = np.clip(new_distribution, 0.0001, None)
+        new_distribution /= np.sum(new_distribution)
+
+        self.goal_distribution = new_distribution
+        self.goal_guess = VALID_GOALS[np.argmax(self.goal_distribution)]
         
     def take_action(self, state):
         epsilon = self.epsilon_end + (self.epsilon_start - self.epsilon_end) * \
@@ -107,15 +169,21 @@ class FOToMPlayer(Player):
         offer_me = action[0]
         offer_opp = action[1]
         
-        return (tuple(offer_me), tuple(offer_opp))
+        offer = (sorted(tuple(offer_me)), sorted(tuple(offer_opp)))
+        self.own_prev_offer = offer
+        
+        return offer
     
     def offer_in(self, offer):
         if self.transition[0] == None:
             self.new_game()
-            
+        
         self.DQN.prev_offer = offer
         
         state = self.DQN.get_state()
+        
+        # let's guess the goal according to offer in state
+        self.guess_opp_goal(offer, state)
         
         if self.transition[0] != None:
             self.transition[3] = state
@@ -124,10 +192,8 @@ class FOToMPlayer(Player):
             self.transition = [None]*4
         
         action = self.take_action(state)
-        
-        action_me = action[0]
                 
-        if sorted(action_me) == sorted(offer[1]):
+        if self.offers_match(action[0], offer[1]):
             return True     # accept offer
         else:
             return False    # decline offer
