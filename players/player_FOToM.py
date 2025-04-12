@@ -18,10 +18,14 @@ class FOToMPlayer(Player):
                  board: Board,
                  batch_size: int = 32,
                  name: str = "FOToM_player",
+                 DQN_agent: DQNPlayer = None,
                  *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.type = "FOToM"
-        self.DQN = DQNPlayer(epsilon_start, epsilon_end, epsilon_decay, gamma, lr, board, batch_size, name+"_puppet")
+        if DQN_agent:
+            self.DQN = DQN_agent
+        else:
+            self.DQN = DQNPlayer(epsilon_start, epsilon_end, epsilon_decay, gamma, lr, board, batch_size, name+"_puppet")
         self.epsilon_start = epsilon_start
         self.epsilon_end = epsilon_end
         self.epsilon_decay = epsilon_decay
@@ -83,7 +87,7 @@ class FOToMPlayer(Player):
     
     def offers_match(self, a, b):
         return sorted(a) == sorted(b)
-        
+    
     def predict_best_action(self, state):
         state = state.view(-1)
 
@@ -98,15 +102,16 @@ class FOToMPlayer(Player):
             opponent_state = self.construct_opponent_state(state, self.goal_guess, offer[1])
             predicted_response, _ = self.predict_action(opponent_state)
 
-            # if opponent would accept, skip
-            if self.offers_match(predicted_response[1], offer[0]):
-                continue
-
-            # simulate next state if rejected
-            next_state = state.clone()
-            next_state[20:28] = self.encode_offer(predicted_response[1])
-
-            _, value = self.predict_action(next_state)
+            if self.offers_match(predicted_response[1], tuple(self.chips)):
+                value = 0
+            elif self.offers_match(predicted_response[1], offer[0]):
+                value = self.DQN.r_table[self.board.code][self.goal][tuple(sorted(predicted_response[1]))]
+            else:
+                # simulate next state if rejected
+                next_state = state.clone()
+                next_state[20:28] = self.encode_offer(predicted_response[1])
+                
+                _, value = self.predict_action(next_state)
 
             if value > max_return:
                 max_return = value

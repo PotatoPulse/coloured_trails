@@ -6,6 +6,7 @@ from players.player_FOToM import FOToMPlayer
 from game_master import GameMaster
 import pandas as pd
 import matplotlib.pyplot as plt
+import copy
 
 def main():
     valid_goals = [
@@ -16,15 +17,6 @@ def main():
     ]
     
     board = Board(valid_goals)
-    ToM_player = FOToMPlayer(epsilon_start = 0.5, 
-                 epsilon_end = 0.05,
-                 epsilon_decay = 1000,
-                 gamma = 0.99,
-                 lr = 1e-4,
-                 goal_lr = 0.1, # 0.5, 0.9
-                 board = board,
-                 batch_size = 32,
-                 name = "Daniel")
     
     DQN_player1 = DQNPlayer(epsilon_start = 0.5, 
                  epsilon_end = 0.05,
@@ -35,7 +27,7 @@ def main():
                  batch_size = 32,
                  name = "John")
     
-    DQN_player2 = DQNPlayer(epsilon_start = 0.5, 
+    DQN_player2 = DQNPlayer(epsilon_start = 0.9, 
                  epsilon_end = 0.05,
                  epsilon_decay = 1000,
                  gamma = 0.99,
@@ -46,15 +38,33 @@ def main():
     
     random_player = RandomPlayer()
     
+    '''
     # initialising DQN Q-values by playing games against player who always accepts
     training_dummy = AcceptPlayer()
     game = GameMaster(initiator=training_dummy, responder=ToM_player, board=board)
     game.play(max_games=1000)
+    '''
     
     # initialising DQN Q-values by playing games against player who always accepts
     training_dummy = AcceptPlayer()
     game = GameMaster(initiator=training_dummy, responder=DQN_player2, board=board)
     game.play(max_games=1000)
+    
+    # initialising DQN Q-values by playing games against player who always accepts
+    training_dummy = copy.deepcopy(DQN_player2)
+    game = GameMaster(initiator=DQN_player2, responder=training_dummy, board=board)
+    game.play(max_games=1000) # test with more games
+    
+    ToM_player = FOToMPlayer(epsilon_start = 0.1, 
+                epsilon_end = 0.05,
+                epsilon_decay = 1000,
+                gamma = 0.99,
+                lr = 1e-4,
+                goal_lr = 0.1, # 0.5, 0.9
+                board = board,
+                batch_size = 32,
+                name = "Daniel",
+                DQN_agent = training_dummy)
     
     initiator = DQN_player2
     responder = ToM_player
