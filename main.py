@@ -1,3 +1,4 @@
+from utils.globals import VALID_GOALS
 from board import Board
 from players.player_random import RandomPlayer
 from players.player_DQN import DQNPlayer
@@ -7,18 +8,14 @@ from game_master import GameMaster
 import pandas as pd
 import matplotlib.pyplot as plt
 import copy
+import time
 
 def main():
-    valid_goals = [
-        (0, 0), (0, 1), (0, 3), (0, 4),
-        (1, 0), (1, 4),
-        (3, 0), (3, 4),
-        (4, 0), (4, 1), (4, 3), (4, 4),
-    ]
+    start_time = time.time()
     
-    board = Board(valid_goals)
+    board = Board.load("best_board", copy.copy(VALID_GOALS))
     
-    DQN_player1 = DQNPlayer(epsilon_start = 0.5, 
+    DQN_player1 = DQNPlayer(epsilon_start = 0.9, 
                  epsilon_end = 0.05,
                  epsilon_decay = 1000,
                  gamma = 0.99,
@@ -38,8 +35,8 @@ def main():
     
     random_player = RandomPlayer()
     
-    '''
     # initialising DQN Q-values by playing games against player who always accepts
+    '''
     training_dummy = AcceptPlayer()
     game = GameMaster(initiator=training_dummy, responder=ToM_player, board=board)
     game.play(max_games=1000)
@@ -48,12 +45,14 @@ def main():
     # initialising DQN Q-values by playing games against player who always accepts
     training_dummy = AcceptPlayer()
     game = GameMaster(initiator=training_dummy, responder=DQN_player2, board=board)
-    game.play(max_games=1000)
+    game.play(max_games=100)
     
     # initialising DQN Q-values by playing games against player who always accepts
     training_dummy = copy.deepcopy(DQN_player2)
+    initiator = DQN_player2
+    responder = training_dummy
     game = GameMaster(initiator=DQN_player2, responder=training_dummy, board=board)
-    game.play(max_games=1000) # test with more games
+    game.play(max_games=5000) # test with more games
     
     ToM_player = FOToMPlayer(epsilon_start = 0.1, 
                 epsilon_end = 0.05,
@@ -66,10 +65,14 @@ def main():
                 name = "Daniel",
                 DQN_agent = training_dummy)
     
+    
     initiator = DQN_player2
     responder = ToM_player
     game = GameMaster(initiator=initiator, responder=responder, board=board)
     game.play(max_games=1000)
+    
+    end_time = time.time()
+    print("Total runtime: ", round(end_time - start_time, 2))
     
     # plot results
     df = pd.read_csv(f"logs/log-{initiator.type}-{responder.type}.csv")
@@ -81,6 +84,18 @@ def main():
     plt.xlabel('Game #')
     plt.ylabel('Total Score')
     plt.title('Score Progression Over Games')
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+
+    plt.show()
+    
+    plt.figure(figsize=(10, 6))
+    plt.plot(df['offers_accepted'], label='# accepted offers', linewidth=2)
+    
+    plt.xlabel('Game #')
+    plt.ylabel('Total Score')
+    plt.title('acceptance Progression Over Games')
     plt.legend()
     plt.grid(True)
     plt.tight_layout()

@@ -1,6 +1,7 @@
 BOARD_SIZE = 5
 START_CHIPS = 4
 COLOURS = ["black", "purple", "white", "grey", "yellow"]
+COLOUR_TRANSLATION = {"b": "black", "p": "purple", "w": "white", "g": "grey", "y": "yellow"}
 
 # fixed chips
 CHIPS = sorted(["black", "purple", "white", "grey", "yellow", "black", "purple", "white"])

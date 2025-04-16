@@ -6,6 +6,8 @@ import torch
 import numpy as np
 import random
 from collections import Counter
+import os
+import json
 
 class FOToMPlayer(Player):
     def __init__(self,
@@ -24,6 +26,7 @@ class FOToMPlayer(Player):
         self.type = "FOToM"
         if DQN_agent:
             self.DQN = DQN_agent
+            self.DQN.name = name + "_puppet"
         else:
             self.DQN = DQNPlayer(epsilon_start, epsilon_end, epsilon_decay, gamma, lr, board, batch_size, name+"_puppet")
         self.epsilon_start = epsilon_start
@@ -102,8 +105,10 @@ class FOToMPlayer(Player):
             opponent_state = self.construct_opponent_state(state, self.goal_guess, offer[1])
             predicted_response, _ = self.predict_action(opponent_state)
 
+            # opponent stops negotiations
             if self.offers_match(predicted_response[1], tuple(self.chips)):
                 value = 0
+            # opponent accepts
             elif self.offers_match(predicted_response[1], offer[0]):
                 value = self.DQN.r_table[self.board.code][self.goal][tuple(sorted(predicted_response[1]))]
             else:
@@ -217,3 +222,50 @@ class FOToMPlayer(Player):
         self.DQN.chips = self.chips
         self.DQN.compute_r_table()
         self.start_reward = self.DQN.r_table[self.board.code][self.goal][tuple(sorted(self.chips))]
+        
+    def save(self, name):
+        path = os.path.join(os.getcwd(), "saves", name)
+        
+        metadata = {
+            "epsilon_start": self.epsilon_start,
+            "epsilon_end": self.epsilon_end,
+            "epsilon_decay": self.epsilon_decay,
+            "gamma": self.DQN.gamma,
+            "lr": self.DQN.lr,
+            "goal_lr": self.goal_lr,
+            "batch_size": self.DQN.batch_size,
+            "goal_distribution": self.goal_distribution,
+            "steps": self.steps,
+            "name": self.name
+        }
+        
+        with open(os.path.join(path, "config.json"), "w") as f:
+            json.dump(metadata, f, indent=4)
+            
+        self.DQN.save(name + "_puppet")
+    
+    @classmethod
+    def load(cls, name, board):
+        path = os.path.join(os.getcwd(), "saves", f"FOToM-{name}")
+
+        with open(os.path.join(path, "config.json"), "r") as f:
+            config = json.load(f)
+
+        puppet = DQNPlayer.load(name + "_puppet", board)
+
+        agent = cls(
+            epsilon_start=config["epsilon_start"],
+            epsilon_end=config["epsilon_end"],
+            epsilon_decay=config["epsilon_decay"],
+            gamma=config["gamma"],
+            lr=config["lr"],
+            goal_lr=config["goal_lr"],
+            board=board,
+            batch_size=config["batch_size"],
+            name=config["name"],
+            DQN_agent=puppet
+        )
+        agent.steps = config["steps"]
+        agent.goal_distribution = config["goal_distribution"]
+
+        return agent

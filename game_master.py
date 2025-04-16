@@ -51,26 +51,29 @@ class GameMaster():
         self.init_log_file()
         self.setup()
         
+        self.max_games = max_games
+        
         players = [self.initiator, self.responder]
         
         for player in players:
             if player.type in ("DQN", "FOToM"):
                 player.transition = [None]*4
         
-        games = 0
+        self.games = 0
         i = 0
+        self.offers_accepted = 0
         while True:
             for idx, player in enumerate(players):
                 if player.type == "FOToM":
                     if player.goal_guess == players[1 - idx].goal:
                         print("## Correct goal guessed ##")
             
-            if games >= max_games:
+            if self.games >= max_games:
                 break
             
             if i >= 100:
                 print("~ Max negotiations reached ~")
-                games += 1
+                self.games += 1
                 self.evaluate(penalty=i)
                 self.setup()
                 i = 0
@@ -85,7 +88,7 @@ class GameMaster():
             offer = players[sender].offer_out()
             
             if offer == (players[sender].chips, players[receiver].chips): # player decides to end negotiations
-                games += 1
+                self.games += 1
                 self.evaluate(penalty=i)
                 self.setup()
                 i = 0
@@ -94,8 +97,9 @@ class GameMaster():
                 players[sender].offer_evaluate(offer, accepted)
                 
                 if accepted:
+                    self.offers_accepted += 1
                     self.handle_offer(offer, offer_maker=players[sender].role)
-                    games += 1
+                    self.games += 1
                     self.evaluate(penalty=i)
                     self.setup()
                     i = 0
@@ -136,6 +140,8 @@ class GameMaster():
         self.total_score_initiator += score_initiator
         self.total_score_responder += score_responder
         
+        print("Game ", round((self.games/self.max_games)*100, 2),"% completed")
+        
         self.log_scores()
         
     def init_log_file(self):
@@ -144,7 +150,7 @@ class GameMaster():
 
         with open(log_file, 'w', newline='') as csvfile:
             writer = csv.writer(csvfile)
-            writer.writerow(['total_score_initiator', 'total_score_responder'])
+            writer.writerow(['total_score_initiator', 'total_score_responder', 'offers_accepted'])
         
     def log_scores(self):
         log_file = f'logs/log-{self.initiator.type}-{self.responder.type}.csv'
@@ -152,4 +158,4 @@ class GameMaster():
         with open(log_file, "a", newline='') as csv_file:
             writer = csv.writer(csv_file)
         
-            writer.writerow([self.total_score_initiator, self.total_score_responder])
+            writer.writerow([self.total_score_initiator, self.total_score_responder, self.offers_accepted])

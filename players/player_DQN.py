@@ -8,6 +8,8 @@ import torch
 import torch.nn as nn
 import random
 import numpy as np
+import os
+import json
 
 class DQN(nn.Module):
     def __init__(self, n_states, n_actions):
@@ -241,3 +243,46 @@ class DQNPlayer(Player):
         
         torch.nn.utils.clip_grad_value_(self.policy_net.parameters(), 100)
         self.optimiser.step()
+        
+    def save(self, name):
+        path = os.path.join(os.getcwd(), "saves", name)
+        torch.save(self.policy_net.state_dict(), os.path.join(path, "policy_net.pth"))
+        torch.save(self.target_net.state_dict(), os.path.join(path, "target_net.pth"))
+        
+        metadata = {
+            "epsilon_start": self.epsilon_start,
+            "epsilon_end": self.epsilon_end,
+            "epsilon_decay": self.epsilon_decay,
+            "gamma": self.gamma,
+            "lr": self.lr,
+            "batch_size": self.batch_size,
+            "steps": self.steps,
+            "name": self.name
+        }
+        
+        with open(os.path.join(path, "config.json"), "w") as f:
+            json.dump(metadata, f, indent=4)
+    
+    @classmethod
+    def load(cls, name, board):
+        path = os.path.join(os.getcwd(), "saves", name)
+        
+        with open(os.path.join(path, "config.json"), "r") as f:
+            config = json.load(f)
+            
+        agent = cls(
+            epsilon_start=config["epsilon_start"],
+            epsilon_end=config["epsilon_end"],
+            epsilon_decay=config["epsilon_decay"],
+            gamma=config["gamma"],
+            lr=config["lr"],
+            board=board,
+            batch_size=config["batch_size"],
+            name=config["name"]
+        )
+        agent.steps = config["steps"]
+        
+        agent.policy_net.load_state_dict(torch.load(os.path.join(path, "policy_net.pth")))
+        agent.target_net.load_state_dict(torch.load(os.path.join(path, "target_net.pth")))
+        
+        return agent
