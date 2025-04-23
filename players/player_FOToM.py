@@ -1,4 +1,4 @@
-from utils.globals import VALID_GOALS, CHIPS
+from utils.globals import CHIPS
 from players.player_base import Player
 from board import Board
 from players.player_DQN import DQNPlayer
@@ -67,7 +67,7 @@ class FOToMPlayer(Player):
 
         # set up opponent goal state
         goal_vec = torch.zeros(12)
-        goal_vec[VALID_GOALS.index(goal)] = 1
+        goal_vec[self.board.valid_goals.index(goal)] = 1
         opponent_state[:12] = goal_vec
 
         # flip chip distribution
@@ -89,7 +89,7 @@ class FOToMPlayer(Player):
         return best_action, best_value
     
     def offers_match(self, a, b):
-        return sorted(a) == sorted(b)
+        return sorted(tuple(a)) == sorted(tuple(b))
     
     def predict_best_action(self, state):
         state = state.view(-1)
@@ -97,8 +97,15 @@ class FOToMPlayer(Player):
         if self.goal_guess is None:
             self.goal_guess = self.goal
 
-        max_return = -float('inf')
+        max_return = 0
         best_action = None
+        best_predicted_response = None
+        best_next_action = None
+        
+        for offer in self.all_offers:
+            if self.offers_match(offer[0], self.chips):
+                best_action = offer
+        # best_action = [offer in self.all_offers if offer[0] == self.chips]
 
         for offer in self.all_offers:
             # simulate opponent response
@@ -110,17 +117,26 @@ class FOToMPlayer(Player):
                 value = 0
             # opponent accepts
             elif self.offers_match(predicted_response[1], offer[0]):
-                value = self.DQN.r_table[self.board.code][self.goal][tuple(sorted(predicted_response[1]))]
+                value = self.DQN.r_table[self.board.code][self.goal][tuple(sorted(offer[0]))]
             else:
                 # simulate next state if rejected
                 next_state = state.clone()
                 next_state[20:28] = self.encode_offer(predicted_response[1])
                 
-                _, value = self.predict_action(next_state)
+                next_action, value = self.predict_action(next_state)
+                
+            if not (isinstance(value, int) or isinstance(value, float)):
+                print("value was not an int")
+                exit()
+                value = 0
 
             if value > max_return:
                 max_return = value
                 best_action = offer
+                best_predicted_response = predicted_response
+                best_next_action = next_action
+                
+        print(f"own action: {best_action} - opp action: {best_predicted_response} - next action: {best_next_action} - value: {max_return}")
 
         return best_action
         
@@ -133,7 +149,7 @@ class FOToMPlayer(Player):
         state = state.view(-1)
         updates = np.zeros(12)
 
-        for goal_idx, goal in enumerate(VALID_GOALS):
+        for goal_idx, goal in enumerate(self.board.valid_goals):
             opponent_state = self.construct_opponent_state(state, goal, self.own_prev_offer[1])
             predicted_action, _ = self.predict_action(opponent_state)
 
@@ -149,7 +165,7 @@ class FOToMPlayer(Player):
         new_distribution /= np.sum(new_distribution)
 
         self.goal_distribution = new_distribution
-        self.goal_guess = VALID_GOALS[np.argmax(self.goal_distribution)]
+        self.goal_guess = self.board.valid_goals[np.argmax(self.goal_distribution)]
         
     def take_action(self, state):
         epsilon = self.epsilon_end + (self.epsilon_start - self.epsilon_end) * \
@@ -159,7 +175,6 @@ class FOToMPlayer(Player):
         if random.random() > epsilon:
             # ToM prediction
             action = self.predict_best_action(state)
-            pass
         else:
             # Take a random (exploratory) action
             action = random.choice(self.all_offers)

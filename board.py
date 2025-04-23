@@ -28,7 +28,7 @@ class Board():
         
         self.parent_board = board
         self.parent_code = code
-        
+    
     def generate_parent_from_code(self, parent_code):
         board = []
         row = []
@@ -43,7 +43,7 @@ class Board():
     
     def new_board(self):
         board = [row.copy() for row in self.parent_board]
-        random.shuffle(board)   # shuffle rows
+        # random.shuffle(board)   # shuffle rows
         
         board[self.start[0]][self.start[1]] = None  # No colour needed where the players begin - in the middle
         

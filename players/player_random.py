@@ -1,4 +1,3 @@
-from utils.globals import CHIPS
 from players.player_base import Player
 import random
 

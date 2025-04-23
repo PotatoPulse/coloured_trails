@@ -1,13 +1,13 @@
-from utils.globals import CHIPS
 from players.player_base import Player
 import random
 
 # player that gives out random offers, but always accepts incoming offers
 
 class AcceptPlayer(Player):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, name = "AcceptPlayer", *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.type = "random"
+        self.name = name
+        self.type = "accept"
     
     def offer_out(self) -> tuple[tuple, tuple] | None:
         '''Player sends out an offer'''

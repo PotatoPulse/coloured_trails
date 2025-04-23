@@ -1,4 +1,4 @@
-from utils.globals import COLOURS, START_CHIPS, CHIPS
+from utils.globals import START_CHIPS, CHIPS
 from players.player_base import Player
 from board import Board
 from pathfinder import find_best_path, manhattan_distance
@@ -55,10 +55,6 @@ class GameMaster():
         
         players = [self.initiator, self.responder]
         
-        for player in players:
-            if player.type in ("DQN", "FOToM"):
-                player.transition = [None]*4
-        
         self.games = 0
         i = 0
         self.offers_accepted = 0
@@ -86,8 +82,10 @@ class GameMaster():
             receiver = 1 - sender
             
             offer = players[sender].offer_out()
+            # print("offer: ", offer, f"made by: {players[sender].name}")
             
             if offer == (players[sender].chips, players[receiver].chips): # player decides to end negotiations
+                print(f"Player {players[sender].name} ended negotiations")
                 self.games += 1
                 self.evaluate(penalty=i)
                 self.setup()
@@ -131,11 +129,8 @@ class GameMaster():
         
         # steps towards goal are worth 100 points, unused chips are worth 50 points, 
         # reaching goal is worth 500 points and each round of negotiations is a penalty of 1
-        score_initiator = steps_initiator * 100 - penalty + 50 * unused_chips_initiator + win_score_initiator
-        score_responder = steps_responder * 100 - penalty + 50 * unused_chips_responder + win_score_responder
-        
-        self.initiator.evaluate(score_initiator)
-        self.responder.evaluate(score_responder)
+        score_initiator = steps_initiator * 100 + unused_chips_initiator * 50 + win_score_initiator
+        score_responder = steps_responder * 100 + unused_chips_responder * 50 + win_score_responder
         
         self.total_score_initiator += score_initiator
         self.total_score_responder += score_responder

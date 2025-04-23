@@ -37,3 +37,6 @@ class Player():
     def evaluate(self, score: int):
         '''Player receives feedback on game'''
         pass
+    
+    def end_game(self):
+        pass

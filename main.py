@@ -13,7 +13,7 @@ import time
 def main():
     start_time = time.time()
     
-    board = Board.load("best_board", copy.copy(VALID_GOALS))
+    board = Board.load("test_board", copy.copy(VALID_GOALS))
     
     DQN_player1 = DQNPlayer(epsilon_start = 0.9, 
                  epsilon_end = 0.05,
@@ -25,7 +25,7 @@ def main():
                  name = "John")
     
     DQN_player2 = DQNPlayer(epsilon_start = 0.9, 
-                 epsilon_end = 0.05,
+                 epsilon_end = 0.1, # 0.05
                  epsilon_decay = 1000,
                  gamma = 0.99,
                  lr = 1e-4,
@@ -41,18 +41,26 @@ def main():
     game = GameMaster(initiator=training_dummy, responder=ToM_player, board=board)
     game.play(max_games=1000)
     '''
-    
+
     # initialising DQN Q-values by playing games against player who always accepts
+    '''
     training_dummy = AcceptPlayer()
     game = GameMaster(initiator=training_dummy, responder=DQN_player2, board=board)
-    game.play(max_games=100)
+    game.play(max_games=500)
+    '''
     
+    '''
     # initialising DQN Q-values by playing games against player who always accepts
-    training_dummy = copy.deepcopy(DQN_player2)
     initiator = DQN_player2
-    responder = training_dummy
-    game = GameMaster(initiator=DQN_player2, responder=training_dummy, board=board)
-    game.play(max_games=5000) # test with more games
+    responder = copy.deepcopy(DQN_player2)
+    game = GameMaster(initiator=initiator, responder=responder, board=board)
+    game.play(max_games=30000) # test with more games
+    
+    DQN_player2.save(name="DQN_30000_2")
+    '''
+    
+    '''
+    DQN_player = DQNPlayer.load(name="DQN_30000_2", board=board)
     
     ToM_player = FOToMPlayer(epsilon_start = 0.1, 
                 epsilon_end = 0.05,
@@ -63,13 +71,59 @@ def main():
                 board = board,
                 batch_size = 32,
                 name = "Daniel",
-                DQN_agent = training_dummy)
+                DQN_agent = copy.deepcopy(DQN_player))
     
+    initiator = DQN_player
+    responder = copy.deepcopy(DQN_player)
+    game = GameMaster(initiator=initiator, responder=responder, board=board)
+    game.play(max_games=1000) # test with more games
+    '''
+    
+    '''
+    ToM_player = FOToMPlayer(epsilon_start = 0.1, 
+                epsilon_end = 0.05,
+                epsilon_decay = 1000,
+                gamma = 0.99,
+                lr = 1e-4,
+                goal_lr = 0.1, # 0.5, 0.9
+                board = board,
+                batch_size = 32,
+                name = "Daniel",
+                DQN_agent = responder)
     
     initiator = DQN_player2
     responder = ToM_player
     game = GameMaster(initiator=initiator, responder=responder, board=board)
     game.play(max_games=1000)
+    '''
+    
+    '''
+    initiator = DQN_player2
+    responder = copy.deepcopy(DQN_player2)
+    game = GameMaster(initiator=initiator, responder=responder, board=board)
+    game.play(max_games=2000)
+    DQN_player2.save(name="equilibrium")
+    '''
+    
+    initiator = DQNPlayer.load(name="equilibrium", board=board)
+    responder = copy.deepcopy(initiator)
+    
+    ToM_player = FOToMPlayer(epsilon_start = 0.1, 
+                epsilon_end = 0.05,
+                epsilon_decay = 1000,
+                gamma = 0.99,
+                lr = 1e-4,
+                goal_lr = 0.1, # 0.5, 0.9
+                board = board,
+                batch_size = 32,
+                name = "Daniel",
+                DQN_agent = responder)
+    
+    responder = ToM_player
+    game = GameMaster(initiator=initiator, responder=responder, board=board)
+    game.play(max_games=1000)
+    
+    # initiator.save(name="stationary_board_DQN")
     
     end_time = time.time()
     print("Total runtime: ", round(end_time - start_time, 2))

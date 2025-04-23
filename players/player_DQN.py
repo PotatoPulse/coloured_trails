@@ -1,4 +1,4 @@
-from utils.globals import BOARD_SIZE, CHIPS
+from utils.globals import CHIPS
 from board import Board
 from players.player_base import Player
 from pathfinder import find_best_path, manhattan_distance
@@ -10,6 +10,7 @@ import random
 import numpy as np
 import os
 import json
+import pickle
 
 class DQN(nn.Module):
     def __init__(self, n_states, n_actions):
@@ -22,6 +23,32 @@ class DQN(nn.Module):
         x = nn.functional.relu(self.layer1(x))
         x = nn.functional.relu(self.layer2(x))
         return self.layer3(x)
+
+'''
+class DQN(nn.Module):
+    def __init__(self, n_states, n_actions):
+        super().__init__()
+        self.feature = nn.Sequential(
+            nn.Linear(n_states, 128),
+            nn.ReLU(),
+        )
+        self.value = nn.Sequential(
+            nn.Linear(128, 128),
+            nn.ReLU(),
+            nn.Linear(128, 1)
+        )
+        self.advantage = nn.Sequential(
+            nn.Linear(128, 128),
+            nn.ReLU(),
+            nn.Linear(128, n_actions)
+        )
+
+    def forward(self, x):
+        x = self.feature(x)
+        v = self.value(x)
+        a = self.advantage(x)
+        return v + (a - a.mean(dim=1, keepdim=True))
+'''
 
 
 class DQNPlayer(Player):
@@ -48,9 +75,9 @@ class DQNPlayer(Player):
         self.board = board
         self.name = name
         
-        # number of states = possible board configurations + possible goal states 
-        # + current chip distribution + chip distribution resulting from last offer
-        n_states = 120 + 12 + 8 + 8 
+        # number of states = possible goal states + current chip distribution 
+        # + chip distribution resulting from last offer + possible board configurations 
+        n_states = 12 + 8 + 8 + 120
         
         # actions = all possible offers
         n_actions = len(self.all_offers)
@@ -64,6 +91,8 @@ class DQNPlayer(Player):
         
         self.memory = deque(maxlen=10000)
         self.transition = [None] * 4
+        
+        self.negotiations = 0
         
         # reward look up table
         self.r_table = defaultdict(lambda: defaultdict(dict))
@@ -118,6 +147,7 @@ class DQNPlayer(Player):
     
     def offer_out(self):
         if self.transition[0] == None:
+            self.negotiations = 0
             self.compute_r_table()
             self.start_reward = self.r_table[self.board.code][self.goal][tuple(sorted(self.chips))]
         
@@ -135,6 +165,7 @@ class DQNPlayer(Player):
     
     def offer_in(self, offer):
         if self.transition[0] == None:
+            self.negotiations = 0
             self.compute_r_table()
             self.start_reward = self.r_table[self.board.code][self.goal][tuple(sorted(self.chips))]
         
@@ -162,10 +193,7 @@ class DQNPlayer(Player):
             self.transition[2] = self.r_table[self.board.code][self.goal][tuple(sorted(offer[0]))] - self.start_reward # store reward
             self.store_transition()
         else:
-            self.transition[2] = 0 # reward
-            # reward = self.r_table[self.board.code][self.goal][tuple(sorted(self.chips))] # 0 reward
-
-            # wait for next state to be found out next round
+            self.transition[2] = 0 # 5 * -self.negotiations # reward
     
     def compute_r_table(self):
         ''' computes rewards the agent would get over all possible chip distributions and goals on possible boards '''
@@ -246,6 +274,8 @@ class DQNPlayer(Player):
         
     def save(self, name):
         path = os.path.join(os.getcwd(), "saves", name)
+        os.makedirs(path, exist_ok=True)
+        
         torch.save(self.policy_net.state_dict(), os.path.join(path, "policy_net.pth"))
         torch.save(self.target_net.state_dict(), os.path.join(path, "target_net.pth"))
         
@@ -262,6 +292,14 @@ class DQNPlayer(Player):
         
         with open(os.path.join(path, "config.json"), "w") as f:
             json.dump(metadata, f, indent=4)
+        
+        def convert_to_dict(d):
+            if isinstance(d, defaultdict):
+                return {k: convert_to_dict(v) for k, v in d.items()}
+            return d
+        
+        with open(os.path.join(path, "r_table.pkl"), "wb") as f:
+            pickle.dump(convert_to_dict(self.r_table), f)
     
     @classmethod
     def load(cls, name, board):
@@ -284,5 +322,14 @@ class DQNPlayer(Player):
         
         agent.policy_net.load_state_dict(torch.load(os.path.join(path, "policy_net.pth")))
         agent.target_net.load_state_dict(torch.load(os.path.join(path, "target_net.pth")))
+        
+        def rebuild_dict(d):
+            if isinstance(d, dict):
+                return defaultdict(lambda: defaultdict(dict), {k: rebuild_dict(v) for k, v in d.items()})
+            return d
+        
+        with open(os.path.join(path, "r_table.pkl"), "rb") as f:
+            raw_r_table = pickle.load(f)
+            agent.r_table = rebuild_dict(raw_r_table)
         
         return agent
