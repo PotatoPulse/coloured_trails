@@ -76,8 +76,8 @@ class DQNPlayer(Player):
         self.name = name
         
         # number of states = possible goal states + current chip distribution 
-        # + chip distribution resulting from last offer + possible board configurations 
-        n_states = 12 + 8 + 8 + 120
+        # + chip distribution resulting from last offer + (n_rows * possible row positions)
+        n_states = 12 + 8 + 8 + 25
         
         # actions = all possible offers
         n_actions = len(self.all_offers)
@@ -101,7 +101,7 @@ class DQNPlayer(Player):
         goal_state = torch.zeros(12, dtype=torch.float32)       # 12 possible goals
         chip_state = torch.zeros(8, dtype=torch.float32)        # 8 chips
         prev_offer_state = torch.zeros(8, dtype=torch.float32)  # 8 chips in offer distribution
-        board_state = torch.zeros(120, dtype=torch.float32)    # 5! = 120 possible boards
+        board_state = torch.zeros(25, dtype=torch.float32)      # 5 rows in 5 possible positions
         
         goal_state[self.goal_idx] = 1
         
@@ -119,9 +119,10 @@ class DQNPlayer(Player):
                 if offer_counts[chip] > 0:
                     prev_offer_state[idx] = 1
                     offer_counts[chip] -= 1
-                    
-        board_idx = list(self.r_table.keys()).index(self.board.code)
-        board_state[board_idx] = 1
+        
+        for i in range(5):
+            idx = i*5 + self.board.indices[i]
+            board_state[idx] = 1
         
         state = torch.cat((goal_state, chip_state, prev_offer_state, board_state), dim=0)
         

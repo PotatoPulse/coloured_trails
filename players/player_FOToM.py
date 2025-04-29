@@ -17,6 +17,7 @@ class FOToMPlayer(Player):
                  gamma: float,
                  lr: float,
                  goal_lr: float,
+                 prediction_epsilon: float,
                  board: Board,
                  batch_size: int = 32,
                  name: str = "FOToM_player",
@@ -33,6 +34,7 @@ class FOToMPlayer(Player):
         self.epsilon_end = epsilon_end
         self.epsilon_decay = epsilon_decay
         self.goal_lr = goal_lr
+        self.prediction_epsilon = prediction_epsilon
         self.name = name
         self.board = board
         self.prev_offer = None
@@ -112,18 +114,26 @@ class FOToMPlayer(Player):
             opponent_state = self.construct_opponent_state(state, self.goal_guess, offer[1])
             predicted_response, _ = self.predict_action(opponent_state)
 
-            # opponent stops negotiations
-            if self.offers_match(predicted_response[1], tuple(self.chips)):
+            accepted_value = self.DQN.r_table[self.board.code][self.goal][tuple(sorted(offer[0]))] - self.start_reward
+            
+            next_state = state.clone()
+            next_state[20:28] = self.encode_offer(predicted_response[1])
+            next_action, denied_value = self.predict_action(next_state)
+            
+            # we stopped negotiations
+            if self.offers_match(offer[0], tuple(self.chips)):
                 value = 0
+            # opponent stops negotiations
+            elif self.offers_match(predicted_response[1], tuple(self.chips)):
+                value = accepted_value*self.prediction_epsilon + denied_value*self.prediction_epsilon
             # opponent accepts
             elif self.offers_match(predicted_response[1], offer[0]):
-                value = self.DQN.r_table[self.board.code][self.goal][tuple(sorted(offer[0]))]
+                value = accepted_value * (1-2*self.prediction_epsilon) + denied_value*self.prediction_epsilon
+                
+                # value = self.DQN.r_table[self.board.code][self.goal][tuple(sorted(offer[0]))]
             else:
                 # simulate next state if rejected
-                next_state = state.clone()
-                next_state[20:28] = self.encode_offer(predicted_response[1])
-                
-                next_action, value = self.predict_action(next_state)
+                value = accepted_value*self.prediction_epsilon + denied_value*(1-2*self.prediction_epsilon)
                 
             if not (isinstance(value, int) or isinstance(value, float)):
                 print("value was not an int")
@@ -248,6 +258,7 @@ class FOToMPlayer(Player):
             "gamma": self.DQN.gamma,
             "lr": self.DQN.lr,
             "goal_lr": self.goal_lr,
+            "prediction_epsilon": self.prediction_epsilon,
             "batch_size": self.DQN.batch_size,
             "goal_distribution": self.goal_distribution,
             "steps": self.steps,
@@ -275,6 +286,7 @@ class FOToMPlayer(Player):
             gamma=config["gamma"],
             lr=config["lr"],
             goal_lr=config["goal_lr"],
+            prediction_epsilon=config["prediction_epsilon"],
             board=board,
             batch_size=config["batch_size"],
             name=config["name"],

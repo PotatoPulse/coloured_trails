@@ -21,6 +21,8 @@ class Player():
             opp_new_chips = (Counter(CHIPS) - Counter(my_new_chips)).elements()
             
             self.all_offers.append((tuple(sorted(my_new_chips)), tuple(sorted(opp_new_chips))))
+        
+        self.all_offers = list(set(self.all_offers))    # remove duplicates
 
     def offer_out(self):
         '''Player sends out an offer'''

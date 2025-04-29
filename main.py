@@ -49,75 +49,20 @@ def main():
     game.play(max_games=500)
     '''
     
-    '''
-    # initialising DQN Q-values by playing games against player who always accepts
-    initiator = DQN_player2
-    responder = copy.deepcopy(DQN_player2)
-    game = GameMaster(initiator=initiator, responder=responder, board=board)
-    game.play(max_games=30000) # test with more games
-    
-    DQN_player2.save(name="DQN_30000_2")
-    '''
-    
-    '''
-    DQN_player = DQNPlayer.load(name="DQN_30000_2", board=board)
-    
-    ToM_player = FOToMPlayer(epsilon_start = 0.1, 
-                epsilon_end = 0.05,
-                epsilon_decay = 1000,
-                gamma = 0.99,
-                lr = 1e-4,
-                goal_lr = 0.1, # 0.5, 0.9
-                board = board,
-                batch_size = 32,
-                name = "Daniel",
-                DQN_agent = copy.deepcopy(DQN_player))
-    
-    initiator = DQN_player
-    responder = copy.deepcopy(DQN_player)
-    game = GameMaster(initiator=initiator, responder=responder, board=board)
-    game.play(max_games=1000) # test with more games
-    '''
-    
-    '''
-    ToM_player = FOToMPlayer(epsilon_start = 0.1, 
-                epsilon_end = 0.05,
-                epsilon_decay = 1000,
-                gamma = 0.99,
-                lr = 1e-4,
-                goal_lr = 0.1, # 0.5, 0.9
-                board = board,
-                batch_size = 32,
-                name = "Daniel",
-                DQN_agent = responder)
-    
-    initiator = DQN_player2
-    responder = ToM_player
-    game = GameMaster(initiator=initiator, responder=responder, board=board)
-    game.play(max_games=1000)
-    '''
-    
-    '''
-    initiator = DQN_player2
-    responder = copy.deepcopy(DQN_player2)
-    game = GameMaster(initiator=initiator, responder=responder, board=board)
-    game.play(max_games=2000)
-    DQN_player2.save(name="equilibrium")
-    '''
-    
     initiator = DQNPlayer.load(name="equilibrium", board=board)
-    responder = copy.deepcopy(initiator)
-    
+    puppet = copy.deepcopy(initiator)
+
     ToM_player = FOToMPlayer(epsilon_start = 0.1, 
                 epsilon_end = 0.05,
                 epsilon_decay = 1000,
                 gamma = 0.99,
                 lr = 1e-4,
                 goal_lr = 0.1, # 0.5, 0.9
+                prediction_epsilon = 0.1,
                 board = board,
                 batch_size = 32,
                 name = "Daniel",
-                DQN_agent = responder)
+                DQN_agent = puppet)
     
     responder = ToM_player
     game = GameMaster(initiator=initiator, responder=responder, board=board)

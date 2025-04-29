@@ -2,6 +2,7 @@ from utils.globals import BOARD_SIZE, COLOURS, COLOUR_TRANSLATION
 import random
 import os
 import csv
+import copy
 
 class Board():
     def __init__(self, valid_goals):
@@ -11,6 +12,7 @@ class Board():
         self.valid_goals = valid_goals
         self.code = ""
         self.parent_code = ""
+        self.indices = list(range(BOARD_SIZE))
         
         self.generate_parent_board()
 
@@ -43,7 +45,10 @@ class Board():
     
     def new_board(self):
         board = [row.copy() for row in self.parent_board]
-        # random.shuffle(board)   # shuffle rows
+        
+        # random.shuffle(self.indices)
+        
+        board = [board[i] for i in self.indices]
         
         board[self.start[0]][self.start[1]] = None  # No colour needed where the players begin - in the middle
         
