@@ -58,7 +58,7 @@ def main():
                 gamma = 0.99,
                 lr = 1e-4,
                 goal_lr = 0.1, # 0.5, 0.9
-                prediction_epsilon = 0.1,
+                prediction_epsilon = 0.05,
                 board = board,
                 batch_size = 32,
                 name = "Daniel",

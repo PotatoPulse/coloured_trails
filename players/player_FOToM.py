@@ -116,9 +116,17 @@ class FOToMPlayer(Player):
 
             accepted_value = self.DQN.r_table[self.board.code][self.goal][tuple(sorted(offer[0]))] - self.start_reward
             
+            '''
             next_state = state.clone()
             next_state[20:28] = self.encode_offer(predicted_response[1])
             next_action, denied_value = self.predict_action(next_state)
+            
+            if self.offers_match(next_action[0], predicted_response[1]):
+                denied_value = self.DQN.r_table[self.board.code][self.goal][tuple(sorted(predicted_response[1]))] - self.start_reward
+            else:
+                denied_value = 0
+            '''
+            denied_value = max(0, self.DQN.r_table[self.board.code][self.goal][tuple(sorted(predicted_response[1]))]  - self.start_reward)
             
             # we stopped negotiations
             if self.offers_match(offer[0], tuple(self.chips)):
@@ -142,11 +150,12 @@ class FOToMPlayer(Player):
 
             if value > max_return:
                 max_return = value
+                max_accepted = accepted_value
+                max_denied = denied_value
                 best_action = offer
                 best_predicted_response = predicted_response
-                best_next_action = next_action
                 
-        print(f"own action: {best_action} - opp action: {best_predicted_response} - next action: {best_next_action} - value: {max_return}")
+        print(f"own action: {best_action} - opp action: {best_predicted_response} - perceived value: {max_return} (accepted: {max_accepted}, denied: {max_denied})")
 
         return best_action
         
@@ -212,6 +221,8 @@ class FOToMPlayer(Player):
     def offer_in(self, offer):
         if self.transition[0] == None:
             self.new_game()
+            
+        print(f"Opponent offer: {offer}")
         
         self.DQN.prev_offer = offer
         
@@ -226,8 +237,9 @@ class FOToMPlayer(Player):
             self.DQN.store_transition()
             self.transition = [None]*4
         
-        action = self.take_action(state)
-                
+        # only based on policy net
+        action, _ = self.predict_action(state.view(-1))
+        
         if self.offers_match(action[0], offer[1]):
             return True     # accept offer
         else:
