@@ -46,7 +46,7 @@ class Board():
     def new_board(self):
         board = [row.copy() for row in self.parent_board]
         
-        # random.shuffle(self.indices)
+        random.shuffle(self.indices)
         
         board = [board[i] for i in self.indices]
         
@@ -54,7 +54,7 @@ class Board():
         
         self.grid = board
         self.update_code()
-        
+    
     def random_goal_pos(self):
         index, goal = random.choice(list(enumerate(self.valid_goals)))
         return goal, index

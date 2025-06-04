@@ -147,34 +147,30 @@ class DQNPlayer(Player):
         return action
     
     def offer_out(self):
-        if self.transition[0] == None:
-            self.negotiations = 0
-            self.compute_r_table()
-            self.start_reward = self.r_table[self.board.code][self.goal][tuple(sorted(self.chips))]
-        
         state = self.get_state()
         
         action = self.take_action(state)
         
-        self.transition[0] = state 
+        self.transition[0] = state
         self.transition[1] = torch.tensor([[self.all_offers.index(action)]])  # store action as index within all_offers list
         
         offer_me = action[0]
         offer_opp = action[1]
         
+        # we withdraw from negotiations
+        if sorted(tuple(offer_me)) == sorted(tuple(self.chips)):
+            print("own offer:", offer_me, "own chips: ", self.chips)
+            self.transition[2] = 0
+            self.store_transition()
+        
         return (sorted(tuple(offer_me)), sorted(tuple(offer_opp)))
     
     def offer_in(self, offer):
-        if self.transition[0] == None:
-            self.negotiations = 0
-            self.compute_r_table()
-            self.start_reward = self.r_table[self.board.code][self.goal][tuple(sorted(self.chips))]
-        
         self.prev_offer = offer
         
         state = self.get_state()
         
-        if self.transition[0] != None and self.transition[2] != None:
+        if self.transition[0] != None:
             # update next_state in transition and store to memory
             self.transition[3] = state
             self.store_transition()
@@ -184,6 +180,11 @@ class DQNPlayer(Player):
         action_me = action[0]
         
         if sorted(action_me) == sorted(offer[1]):
+            if self.transition[0] == None:
+                self.transition[0] = state
+                self.transition[1] = torch.tensor([[self.all_offers.index(action)]])
+                self.transition[2] = self.r_table[self.board.code][self.goal][tuple(sorted(offer[1]))] - self.start_reward # store reward
+                self.store_transition()
             return True     # accept offer
         else:
             return False    # decline offer
@@ -226,7 +227,8 @@ class DQNPlayer(Player):
     
     def store_transition(self):
         if None in self.transition[:3]:
-            print("NONE FOUND IN TRANSITION", self.transition)
+            print(f"NONE FOUND IN TRANSITION for {self.name}", self.transition)
+            # exit()
             return
         self.memory.append(self.transition)
         self.optimise_model()
@@ -272,6 +274,15 @@ class DQNPlayer(Player):
         
         torch.nn.utils.clip_grad_value_(self.policy_net.parameters(), 100)
         self.optimiser.step()
+        
+    def new_game(self):
+        self.transition = [None] * 4
+        self.compute_r_table()
+        self.start_reward = self.r_table[self.board.code][self.goal][tuple(sorted(self.chips))]
+        
+    def end_game(self):
+        if self.transition[0] is not None:
+            self.store_transition()
         
     def save(self, name):
         path = os.path.join(os.getcwd(), "saves", name)

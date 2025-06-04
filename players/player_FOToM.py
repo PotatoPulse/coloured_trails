@@ -116,17 +116,16 @@ class FOToMPlayer(Player):
 
             accepted_value = self.DQN.r_table[self.board.code][self.goal][tuple(sorted(offer[0]))] - self.start_reward
             
-            '''
             next_state = state.clone()
             next_state[20:28] = self.encode_offer(predicted_response[1])
             next_action, denied_value = self.predict_action(next_state)
-            
+
             if self.offers_match(next_action[0], predicted_response[1]):
                 denied_value = self.DQN.r_table[self.board.code][self.goal][tuple(sorted(predicted_response[1]))] - self.start_reward
             else:
                 denied_value = 0
-            '''
-            denied_value = max(0, self.DQN.r_table[self.board.code][self.goal][tuple(sorted(predicted_response[1]))]  - self.start_reward)
+            
+            # denied_value = max(0, self.DQN.r_table[self.board.code][self.goal][tuple(sorted(predicted_response[1]))]  - self.start_reward)
             
             # we stopped negotiations
             if self.offers_match(offer[0], tuple(self.chips)):
@@ -142,11 +141,6 @@ class FOToMPlayer(Player):
             else:
                 # simulate next state if rejected
                 value = accepted_value*self.prediction_epsilon + denied_value*(1-2*self.prediction_epsilon)
-                
-            if not (isinstance(value, int) or isinstance(value, float)):
-                print("value was not an int")
-                exit()
-                value = 0
 
             if value > max_return:
                 max_return = value
@@ -155,7 +149,7 @@ class FOToMPlayer(Player):
                 best_action = offer
                 best_predicted_response = predicted_response
                 
-        print(f"own action: {best_action} - opp action: {best_predicted_response} - perceived value: {max_return} (accepted: {max_accepted}, denied: {max_denied})")
+        # print(f"own action: {best_action} - opp action: {best_predicted_response} - perceived value: {max_return} (accepted: {max_accepted}, denied: {max_denied})")
 
         return best_action
         
@@ -216,13 +210,18 @@ class FOToMPlayer(Player):
         offer = (sorted(tuple(offer_me)), sorted(tuple(offer_opp)))
         self.own_prev_offer = offer
         
+        # we withdraw from negotiations
+        if self.offers_match(offer[0], self.chips):
+            self.transition[2] = 0
+            self.DQN.store_transition()
+        
         return offer
     
     def offer_in(self, offer):
         if self.transition[0] == None:
             self.new_game()
             
-        print(f"Opponent offer: {offer}")
+        # print(f"Opponent offer: {offer}")
         
         self.DQN.prev_offer = offer
         
@@ -235,12 +234,15 @@ class FOToMPlayer(Player):
             self.transition[3] = state
             self.DQN.transition = self.transition
             self.DQN.store_transition()
-            self.transition = [None]*4
         
         # only based on policy net
         action, _ = self.predict_action(state.view(-1))
         
         if self.offers_match(action[0], offer[1]):
+            self.transition[0] = state
+            self.transition[1] = torch.tensor([[self.all_offers.index(action)]])
+            self.transition[2] = self.DQN.r_table[self.board.code][self.goal][tuple(sorted(offer[1]))] - self.start_reward # store reward
+            self.DQN.store_transition()
             return True     # accept offer
         else:
             return False    # decline offer
@@ -250,15 +252,19 @@ class FOToMPlayer(Player):
             # initial reward - new reward
             self.transition[2] = self.DQN.r_table[self.board.code][self.goal][tuple(sorted(offer[0]))] - self.start_reward # store reward
             self.DQN.store_transition()
-            self.transition = [None]*4
         else:
             self.transition[2] = 0 # reward
         
     def new_game(self):
+        self.transition = [None]*4
         self.DQN.board = self.board
         self.DQN.chips = self.chips
         self.DQN.compute_r_table()
         self.start_reward = self.DQN.r_table[self.board.code][self.goal][tuple(sorted(self.chips))]
+    
+    def end_game(self):
+        if self.transition[0] is not None:
+            self.DQN.store_transition()
         
     def save(self, name):
         path = os.path.join(os.getcwd(), "saves", name)

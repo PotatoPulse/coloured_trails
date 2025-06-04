@@ -9,6 +9,7 @@ class Player():
         self.board = None
         self.goal = None
         self.goal_idx = None
+        self.start_reward = None
         self.type = "base"
         self.role = ""
         self.all_offers = []
